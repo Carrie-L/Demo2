@@ -8,6 +8,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Demo2">
 
+        <receiver
+            android:name=".searchtoolswidget.sync.WidgetScheduleReceiver"
+            android:exported="false" />
+
         <activity
             android:name=".searchmock.ui.shortcut.SettingsActivity"
             android:exported="false" />
