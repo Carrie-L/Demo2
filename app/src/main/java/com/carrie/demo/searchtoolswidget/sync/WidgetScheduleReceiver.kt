@@ -11,8 +11,12 @@ class WidgetScheduleReceiver : BroadcastReceiver() {
         val scheduler = WidgetHintSyncScheduler(context)
         when (intent.action) {
             WidgetScheduleActions.ACTION_SYNC_NOW -> scheduler.enqueueImmediateSync()
-            WidgetScheduleActions.ACTION_RECONCILE -> scheduler.reconcile()
+            WidgetScheduleActions.ACTION_RECONCILE -> scheduler.reconcile(
+                enqueueImmediate = intent.getBooleanExtra(
+                    WidgetScheduleActions.EXTRA_ENQUEUE_IMMEDIATE,
+                    false,
+                ),
+            )
         }
     }
 }
-

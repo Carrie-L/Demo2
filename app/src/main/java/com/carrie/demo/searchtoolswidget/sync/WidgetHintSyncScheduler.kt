@@ -17,7 +17,7 @@ class WidgetHintSyncScheduler(context: Context) {
     private val workManager = WorkManager.getInstance(appContext)
     private val stateStore = MmkvWidgetStateStore.get()
 
-    fun reconcile() {
+    fun reconcile(enqueueImmediate: Boolean) {
         val privacyAccepted = PrivacyAgreementStore(appContext).isAccepted()
         val widgetCount = WidgetInstanceCounter.count(appContext)
         stateStore.setPrivacyAllowed(privacyAccepted)
@@ -26,7 +26,9 @@ class WidgetHintSyncScheduler(context: Context) {
             cancelAllWidgetWork()
             if (!privacyAccepted) {
                 stateStore.clearPool()
-                WidgetBroadcasts.sendPoolChanged(appContext)
+                if (widgetCount > 0) {
+                    WidgetBroadcasts.sendPoolChanged(appContext)
+                }
             }
             return
         }
@@ -45,7 +47,9 @@ class WidgetHintSyncScheduler(context: Context) {
             ExistingPeriodicWorkPolicy.UPDATE,
             periodicRequest,
         )
-        enqueueImmediateSync()
+        if (enqueueImmediate) {
+            enqueueImmediateSync()
+        }
     }
 
     fun enqueueImmediateSync() {
@@ -72,4 +76,3 @@ class WidgetHintSyncScheduler(context: Context) {
         const val IMMEDIATE_WORK_NAME = "search_tools_widget_hint_sync_now"
     }
 }
-

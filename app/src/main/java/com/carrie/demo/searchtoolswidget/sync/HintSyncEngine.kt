@@ -24,13 +24,13 @@ class HintSyncEngine(
         val newPool = source.query()
         when (val decision = HintPoolDecider.decide(store.readPool(), newPool)) {
             HintPoolDecision.Unchanged -> {
-                store.updateLastSuccessfulRefreshAt(nowMillis())
+                runCatching { store.updateLastSuccessfulRefreshAt(nowMillis()) }
                 HintSyncOutcome.Unchanged
             }
 
             is HintPoolDecision.Replace -> {
                 store.replacePool(decision.newPool)
-                store.updateLastSuccessfulRefreshAt(nowMillis())
+                runCatching { store.updateLastSuccessfulRefreshAt(nowMillis()) }
                 HintSyncOutcome.Changed
             }
         }
@@ -38,4 +38,3 @@ class HintSyncEngine(
         HintSyncOutcome.Failed
     }
 }
-

@@ -66,9 +66,24 @@ class HintSyncEngineTest {
         assertEquals(99L, store.lastSuccessfulRefreshAtMillis())
     }
 
+    @Test
+    fun `diagnostic timestamp failure does not hide a committed pool change`() {
+        val store = FakeStore(pool = listOf(first), failTimestampWrite = true)
+        val changed = listOf(second)
+        val engine = HintSyncEngine(
+            source = { changed },
+            store = store,
+            nowMillis = { 5_678L },
+        )
+
+        assertEquals(HintSyncOutcome.Changed, engine.sync())
+        assertEquals(changed, store.readPool())
+    }
+
     private class FakeStore(
         pool: List<WidgetHintRecord> = emptyList(),
         private var lastSuccess: Long = 0L,
+        private val failTimestampWrite: Boolean = false,
     ) : WidgetStateStore {
         private var records = pool
         var didReplacePool = false
@@ -86,6 +101,7 @@ class HintSyncEngineTest {
         }
 
         override fun updateLastSuccessfulRefreshAt(timestampMillis: Long) {
+            if (failTimestampWrite) error("timestamp storage unavailable")
             lastSuccess = timestampMillis
         }
 
@@ -100,4 +116,3 @@ class HintSyncEngineTest {
         override fun frequencyMinutes(): Long = 60L
     }
 }
-

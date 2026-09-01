@@ -1,0 +1,11 @@
+<resources>
+    <string name="widget_name">常用搜索工具</string>
+    <string name="widget_description">暗词轮播、搜索和四个常用入口</string>
+    <string name="widget_fallback">搜索你感兴趣的内容</string>
+    <string name="widget_search">搜索</string>
+    <string name="widget_favorites">收藏</string>
+    <string name="widget_history">历史</string>
+    <string name="widget_weather">天气</string>
+    <string name="widget_settings">设置</string>
+</resources>
+

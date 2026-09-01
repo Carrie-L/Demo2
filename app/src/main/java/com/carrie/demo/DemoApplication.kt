@@ -13,7 +13,7 @@ class DemoApplication : Application() {
         if (getProcessName() == packageName) {
             val dao = SearchMockGraph.hintDao(this)
             MockSearchData.ensureSeeded(this, dao)
-            WidgetHintSyncScheduler(this).reconcile()
+            WidgetHintSyncScheduler(this).reconcile(enqueueImmediate = false)
         }
     }
 }

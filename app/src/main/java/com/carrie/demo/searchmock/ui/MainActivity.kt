@@ -36,7 +36,10 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.privacy_button).setOnClickListener {
             privacyStore.setAccepted(!privacyStore.isAccepted())
-            sendWidgetCommand(WidgetScheduleActions.ACTION_RECONCILE)
+            sendWidgetCommand(
+                WidgetScheduleActions.ACTION_RECONCILE,
+                enqueueImmediate = true,
+            )
             renderState()
         }
         findViewById<Button>(R.id.frequency_button).setOnClickListener {
@@ -80,12 +83,13 @@ class MainActivity : AppCompatActivity() {
     private fun replaceData(records: List<SearchHintRecord>) {
         hintDao.replaceAll(records)
         renderState()
-        sendWidgetCommand(WidgetScheduleActions.ACTION_SYNC_NOW)
     }
 
-    private fun sendWidgetCommand(action: String) {
+    private fun sendWidgetCommand(action: String, enqueueImmediate: Boolean = false) {
         sendBroadcast(
-            Intent(action).setClassName(packageName, WidgetScheduleActions.RECEIVER_CLASS),
+            Intent(action)
+                .setClassName(packageName, WidgetScheduleActions.RECEIVER_CLASS)
+                .putExtra(WidgetScheduleActions.EXTRA_ENQUEUE_IMMEDIATE, enqueueImmediate),
         )
     }
 
@@ -109,4 +113,3 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-
