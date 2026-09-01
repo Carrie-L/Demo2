@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFF7F0"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="搜索激活页"
+        android:textColor="#FF24211F"
+        android:textSize="26sp"
+        android:textStyle="bold" />
+
+    <EditText
+        android:id="@+id/search_input"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="22dp"
+        android:background="@drawable/bg_panel"
+        android:hint="搜索你感兴趣的内容"
+        android:inputType="text"
+        android:maxLines="1"
+        android:paddingHorizontal="18dp"
+        android:textColor="#FF24211F"
+        android:textColorHint="#FF938C87"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/rotation_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:textColor="#FF706A66"
+        android:textSize="14sp" />
+
+    <Button
+        android:id="@+id/search_submit_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:background="@drawable/bg_primary_button"
+        android:text="搜索"
+        android:textColor="#FFFFFFFF" />
+</LinearLayout>
+

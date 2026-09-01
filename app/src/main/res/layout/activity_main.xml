@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFF7F0"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="搜索工具组件 Demo"
+            android:textColor="#FF24211F"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="先同意隐私，再把 4×2 组件添加到桌面。"
+            android:textColor="#FF706A66"
+            android:textSize="15sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:background="@drawable/bg_panel"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/privacy_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#FF24211F"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/privacy_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_primary_button"
+                android:text="切换隐私同意状态"
+                android:textColor="#FFFFFFFF" />
+
+            <TextView
+                android:id="@+id/frequency_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:textColor="#FF24211F"
+                android:textSize="15sp" />
+
+            <Button
+                android:id="@+id/frequency_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="切换 60 / 15 / 120 min" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:background="@drawable/bg_panel"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="搜索模块 Mock 数据表"
+                android:textColor="#FF24211F"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/data_preview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="#FFF8F5F2"
+                android:padding="12dp"
+                android:textColor="#FF514B47"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/data_initial_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="写入初始数据" />
+
+            <Button
+                android:id="@+id/data_changed_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="写入全新数据" />
+
+            <Button
+                android:id="@+id/data_duplicate_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="写入含重复文案的数据（不去重）" />
+
+            <Button
+                android:id="@+id/data_empty_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="清空数据库" />
+
+            <Button
+                android:id="@+id/sync_now_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_primary_button"
+                android:text="立即同步一次组件"
+                android:textColor="#FFFFFFFF" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="24dp"
+            android:background="@drawable/bg_panel"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="主 App 页面验证"
+                android:textColor="#FF24211F"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/open_search_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="普通进入搜索激活页" />
+
+            <Button
+                android:id="@+id/open_result_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="打开空关键词结果页" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>
+

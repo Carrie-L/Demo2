@@ -2,10 +2,39 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application
+        android:name=".DemoApplication"
         android:allowBackup="true"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Demo2" />
+        android:theme="@style/Theme.Demo2">
+
+        <activity
+            android:name=".searchmock.ui.shortcut.SettingsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".searchmock.ui.shortcut.WeatherActivity"
+            android:exported="false" />
+        <activity
+            android:name=".searchmock.ui.shortcut.HistoryActivity"
+            android:exported="false" />
+        <activity
+            android:name=".searchmock.ui.shortcut.FavoritesActivity"
+            android:exported="false" />
+        <activity
+            android:name=".searchmock.ui.SearchResultActivity"
+            android:exported="false" />
+        <activity
+            android:name=".searchmock.ui.SearchActivationActivity"
+            android:exported="false" />
+        <activity
+            android:name=".searchmock.ui.MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+    </application>
 
 </manifest>
-
