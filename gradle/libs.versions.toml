@@ -2,7 +2,7 @@
 agp = "9.2.1"
 activity = "1.12.3"
 appcompat = "1.7.1"
-coreKtx = "1.19.0"
+coreKtx = "1.18.0"
 espresso = "3.7.0"
 gson = "2.13.2"
 junit = "4.13.2"
@@ -24,4 +24,3 @@ mmkv = { group = "com.tencent", name = "mmkv", version.ref = "mmkv" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
-
