@@ -38,12 +38,16 @@ class HintRemoteViewsFactory(
             setTextViewText(R.id.widget_hint_text, record.keyword)
             setOnClickFillInIntent(
                 R.id.widget_hint_text,
-                fillInIntent(WidgetAction.SEARCH_ACTIVATE, record.keyword),
+                fillInIntent(WidgetAction.SEARCH_ACTIVATE, record.keyword, position),
             )
             setOnClickFillInIntent(
                 R.id.widget_search_button,
-                fillInIntent(WidgetAction.SEARCH_SUBMIT, record.keyword),
+                fillInIntent(WidgetAction.SEARCH_SUBMIT, record.keyword, position),
             )
+            bindTool(R.id.tool_favorites, WidgetAction.FAVORITES, record.keyword, position)
+            bindTool(R.id.tool_history, WidgetAction.HISTORY, record.keyword, position)
+            bindTool(R.id.tool_weather, WidgetAction.WEATHER, record.keyword, position)
+            bindTool(R.id.tool_settings, WidgetAction.SETTINGS, record.keyword, position)
         }
     }
 
@@ -60,11 +64,20 @@ class HintRemoteViewsFactory(
         records = if (store.isPrivacyAllowed()) store.readPool() else emptyList()
     }
 
-    private fun fillInIntent(action: WidgetAction, keyword: String): Intent {
+    private fun RemoteViews.bindTool(
+        viewId: Int,
+        action: WidgetAction,
+        keyword: String,
+        position: Int,
+    ) {
+        setOnClickFillInIntent(viewId, fillInIntent(action, keyword, position))
+    }
+
+    private fun fillInIntent(action: WidgetAction, keyword: String, position: Int): Intent {
         return Intent().apply {
             putExtra(WidgetClickContract.EXTRA_ACTION, action.name)
             putExtra(WidgetClickContract.EXTRA_KEYWORD, keyword)
+            putExtra(WidgetClickContract.EXTRA_HINT_POSITION, position)
         }
     }
 }
-

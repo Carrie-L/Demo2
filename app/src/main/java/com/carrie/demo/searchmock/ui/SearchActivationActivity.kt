@@ -1,5 +1,6 @@
 package com.carrie.demo.searchmock.ui
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
@@ -7,13 +8,12 @@ import android.os.Looper
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
 import com.carrie.demo.R
 import com.carrie.demo.searchmock.data.SearchMockGraph
 import com.carrie.demo.searchmock.domain.SearchLaunchState
 import com.carrie.demo.searchtoolswidget.router.WidgetNavigationContract
 
-class SearchActivationActivity : AppCompatActivity() {
+class SearchActivationActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var searchInput: EditText
     private var hints: List<String> = emptyList()
@@ -74,4 +74,3 @@ class SearchActivationActivity : AppCompatActivity() {
         const val ROTATION_INTERVAL_MS = 8_000L
     }
 }
-

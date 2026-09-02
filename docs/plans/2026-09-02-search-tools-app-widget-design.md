@@ -1,6 +1,6 @@
 # 搜索工具桌面与负一屏小组件技术设计
 
-- 状态：待评审
+- 状态：已评审并完成 Demo 实现，待 MagicOS 10 真机验收
 - 日期：2026-09-02
 - 目标仓库：`Carrie-L/Demo2`
 - 目标设备：荣耀 MagicOS 10（Android 16 / API 36）
@@ -24,9 +24,9 @@ Demo 的页面与数据源允许 Mock，但模块边界、多进程、调度、�
 4. 暗词池写入支持主进程与 `:widgetProvider` 进程跨进程可见。
 5. 默认仅在数据库查询返回的完整有序记录列表发生变化时换池；换池后所有搜索工具组件实例立即回到第一条重新轮播。
 6. 点击搜索区域或搜索按钮时，准确携带当前展示暗词进入 App。
-7. 点击任意搜索入口或底部快捷按钮后，所有搜索工具组件实例立即对齐到下一条暗词。
+7. 点击任意搜索入口或底部快捷按钮后，所有搜索工具组件实例各自立即推进一条暗词。
 8. 新池为空时清空旧池、显示兜底文案并停止轮播；读取失败时保留旧池。
-9. 支持桌面和荣耀负一屏同时添加多个实例；所有实例共享同一暗词池，换池和点击时统一对齐。
+9. 支持桌面和荣耀负一屏同时添加多个实例；所有实例共享同一暗词池，换池时统一归零，点击时各自推进一条。
 
 ### 2.2 非目标
 
@@ -57,37 +57,32 @@ Demo 的页面与数据源允许 Mock，但模块边界、多进程、调度、�
 | 顺序 | 同一 DAO 查询的返回顺序就是轮播顺序；顺序变化视为新池 |
 | 空结果 | 覆盖为空、显示兜底、停止轮播 |
 | 读取失败 | 不覆盖、不刷新，保留旧池 |
-| 多实例 | 数据和主动对齐操作同步；宿主计时器的持续严格同步列为 P0 待确认 |
+| 多实例 | 共享池；换池时全部归零；点击时全部各自推进一条；不要求宿主计时器严格同步 |
 | 持久化进度 | 默认不保存轮播下标；自动轮播位置由宿主维护 |
 
-## 4. 待产品确认
+## 4. 已锁定的实施语义
 
-### 4.1 多宿主是否要求持续严格同步
+### 4.1 多宿主不要求持续严格同步
 
 “多个工具组件同一时刻显示同一条”需要区分两层语义：
 
-1. **数据与主动操作同步（当前方案可保证）**：桌面和负一屏的所有 `SearchToolsWidgetProvider` 实例读取同一 MMKV 池；新池到达时全部显示第 0 条；点击任一实例时全部对齐到目标下一条。这里的“全部实例”只指搜索工具组件，不包含锁屏组件或其他 Provider。
+1. **共享数据与统一触发（本次采用）**：桌面和负一屏的所有 `SearchToolsWidgetProvider` 实例读取同一 MMKV 池；新池到达时全部定位第 0 条；点击任一实例时，当前集合页携带自己的稳定 `position`，全部搜索工具实例定位到 `(position + 1) % poolSize`。这里的“全部实例”只指搜索工具组件，不包含锁屏组件或其他 Provider。
 2. **8 秒计时永久严格同步（`AdapterViewFlipper` 无法保证）**：桌面 Launcher 与荣耀负一屏是不同宿主，各自维护 Flipper 计时。某个实例晚添加、宿主隐藏/暂停、进程重建或调度抖动后，两个宿主可能出现轮播相位偏移。
 
-如果产品要求第 2 层严格同步，就不能把 `AdapterViewFlipper` 的宿主自动计时作为唯一时钟，需要改为 App/组件进程维护唯一全局下标并每 8 秒主动更新全部实例。这会引入高频 RemoteViews 更新、进程存活与功耗代价，也无法在 App 被系统杀死时继续。当前性能优先方案默认只保证第 1 层，持续严格同步必须在编码前明确。
+评审结论采用第 1 层，不要求第 2 层。桌面与负一屏因晚添加、隐藏暂停或宿主重建出现相位偏移是允许行为，只要各实例的顺序、8 秒轮播、新池归零和点击推进逻辑正确。
 
 ### 4.2 相同数据是否强制重置
 
-当前默认采用“仅列表变化才重置”：
+实施采用“仅列表变化才重置”：
 
 - 内容和顺序完全相同：保留当前 Flipper 进度。
 - 内容或顺序不同：主动换池并从第 0 条重新轮播。
 
-备选策略是“每次成功读取都重置”。若产品选择备选，只调整 Worker 的换池决策，不改变进程、存储、组件和调度架构。
+“每次成功读取都重置”不在本次 Demo 中实现。
 
 ### 4.3 读取失败后的下一次尝试
 
-待确认两种业务语义：
-
-1. 本轮失败后直接等待下一个 `frequency` 周期。
-2. 本轮先做有限次数退避重试，仍失败再等待下一个周期。
-
-工程推荐第 2 种：最多补偿 2 次，初始退避 30 秒，持续失败后结束本轮并保留周期任务。周期 Worker 不应因一次本地读取错误进入永久失败态。
+实施采用有限退避补偿：首次失败后最多补偿 2 次；持续失败则将本轮作为无更新结束，保留旧池并继续后续周期任务。周期 Worker 不会因一次本地读取错误进入永久失败态。
 
 ## 5. 总体架构
 
@@ -135,7 +130,7 @@ Mock 搜索域和搜索工具组件域必须分包，避免 Demo 迁移时互相
 | 进程 | 组件 | 职责 |
 |---|---|---|
 | 主进程 | Worker、Scheduler、ScheduleReceiver、Mock DB、云配、页面 | 校验隐私与实例门槛、读取数据库、更新 MMKV、承接最终页面 |
-| `:widgetProvider` | Provider、RemoteViewsService/Factory、Router、MMKV 读取 | 向宿主提供组件 UI、立即对齐轮播并中转导航 |
+| `:widgetProvider` | Provider、RemoteViewsService/Factory、Router、MMKV 读取 | 向宿主提供组件 UI、触发全部实例推进并中转导航 |
 | Launcher/荣耀负一屏宿主 | RemoteViews、AdapterViewFlipper | 实际渲染并执行 8 秒翻页 |
 
 同一 `:widgetProvider` 进程被锁屏或桌面组件任一组件拉起时，会执行该进程的 `Application.onCreate()`，但只调用目标组件回调，不会自动触发另一 Provider 更新。因此 `Application` 必须按进程名分流，组件进程只做 MMKV 等必要的轻量初始化。
@@ -181,7 +176,7 @@ Mock 搜索域和搜索工具组件域必须分包，避免 Demo 迁移时互相
 
 WorkManager 负责小时级持久调度，不负责 8 秒轮播。8 秒轮播完全由宿主进程内的 `AdapterViewFlipper` 完成，避免高频唤醒 App、AlarmManager 或 Binder 更新。
 
-周期任务使用固定唯一名称 `search_tools_widget_hint_sync`，确保同一时间只有一个周期请求。首次周期执行可以立即或在系统约束满足后尽快发生；后续每个周期执行一次，但实际运行时间可能因 Doze、负载和省电策略延迟。
+周期任务使用固定唯一名称 `search_tools_widget_hint_sync`，确保同一时间只有一个周期请求。首次添加或重新满足门槛时，另行提交唯一的一次性 Worker 立即取数；周期 Worker 的首次执行延迟一个完整周期，避免和这次立即取数竞争。后续每个周期执行一次，但实际运行时间可能因 Doze、负载和省电策略延迟。
 
 ### 7.2 生命周期
 
@@ -195,7 +190,7 @@ WorkManager 负责小时级持久调度，不负责 8 秒轮播。8 秒轮播完
 6. 最后一个实例删除时，`onDisabled()` 通知主进程取消周期任务；Worker 每次开始也重新校验实例数量，防止删除与执行撞时后继续读库。
 7. 用户后来同意隐私协议：主进程在同意事件中检查实例数量，存在实例才同步门禁并启动调度；不存在实例则不查库。
 8. 用户撤回隐私协议：主进程立即取消任务、清空组件池、将派生门禁写为 false，并通知所有搜索工具实例切到兜底。
-9. 云配周期改变：只有在双门槛满足时，主进程才更新 `frequency` 并替换/更新同名周期任务。
+9. 云配周期改变：只有在双门槛满足时，主进程才更新 `frequency` 并替换/更新同名周期任务。频率未变时使用 `KEEP`，所以 App 冷启动不会重置已经在计时的周期；频率变化时才使用 `UPDATE`。
 
 隐私 SP 是主进程的业务事实源。Android `SharedPreferences` 不作为可靠的跨进程同步容器，`:widgetProvider` 不直接拿同一个 SP 文件做实时判断；主进程把“当前允许展示”这一派生结果同步到多进程 MMKV，并在同意/撤回时发送显式刷新通知。Demo 可用一个 Mock SP boolean 模拟真实协议状态。
 
@@ -208,7 +203,7 @@ WorkManager 负责小时级持久调度，不负责 8 秒轮播。8 秒轮播完
 - 小于 15：按 15 分钟兜底并记录异常配置。
 - 非法或缺失：回退 60 分钟。
 - 本任务只读本地数据库，不设置网络约束。
-- 只有配置值实际变化时才更新周期任务，避免无意义重排。
+- 只有配置值实际变化时才以 `UPDATE` 更新周期任务；相同配置以 `KEEP` 注册，任务不存在时创建、已存在时保留原计时。
 
 ### 7.4 Worker 结果
 
@@ -231,7 +226,7 @@ Worker 成功路径：
 - 第一行：占主要宽度的暗词搜索区域 + 搜索按钮。
 - 第二行：四个等宽快捷按钮，不横向滚动。
 
-顶部不是单独的静态 TextView，而是一个 `AdapterViewFlipper`。每个集合项包含完整的“暗词区域 + 搜索按钮”，因此当前可见项的两个点击入口都能绑定同一个暗词，无需向 Launcher 查询当前下标。
+组件内容由一个 `AdapterViewFlipper` 承载。每个集合项包含完整的“暗词区域 + 搜索按钮 + 底部四个按钮”，因此六个入口都能随当前页携带同一个暗词和稳定 `position`，无需向 Launcher 查询其内部当前下标。空池时显示结构相同的静态兜底层。
 
 ProviderInfo 使用 `updatePeriodMillis=0`，因为周期读取由 WorkManager 管理。4×2 的实际 dp 会随 Launcher 网格变化，布局使用弹性宽度和等权底部按钮，并在 MagicOS 10 桌面与负一屏分别验证。
 
@@ -252,12 +247,12 @@ RemoteViews 被 Launcher/负一屏宿主加载后，翻页计时器运行在宿�
 
 1. Worker 覆盖 MMKV 新池。
 2. Worker 向 `SearchToolsWidgetProvider` 发送显式自定义广播，不伪造受保护的系统 `APPWIDGET_UPDATE` 广播。
-3. `SearchToolsWidgetProvider.onReceive()` 识别 `ACTION_HINT_POOL_CHANGED`，调用内部 `refreshAll(resetToFirst = true)`；自定义 action 不会自动进入 `onUpdate()`。系统 `ACTION_APPWIDGET_UPDATE` 仍交给 `super.onReceive()`，由框架分发到 `onUpdate()`。
+3. `SearchToolsWidgetProvider.onReceive()` 识别 `ACTION_HINT_POOL_CHANGED`，调用内部 `refreshAll(displayedChild = 0)`；自定义 action 不会自动进入 `onUpdate()`。系统 `ACTION_APPWIDGET_UPDATE` 仍交给 `super.onReceive()`，由框架分发到 `onUpdate()`。
 4. Provider 通过 `AppWidgetManager.getAppWidgetIds()` 获取属于 `SearchToolsWidgetProvider` 的全部实例 ID，包括桌面和荣耀负一屏宿主中的实例，但不包含锁屏或其他类型组件。
-5. 通知 `AdapterViewFlipper` 数据集变化，使 Factory 的 `onDataSetChanged()` 重新读取 MMKV。
-6. 将各实例的显示位置重置为第 0 项，并确保自动轮播重新运行。
+5. 通知 `AdapterViewFlipper` 数据集变化，使 Factory 的 `onDataSetChanged()` 重新读取 MMKV；RemoteAdapter 的 URI 带当前完整池的派生 hash，使变化池触发重新绑定而不额外持久化版本号。
+6. 完整 RemoteViews 显式切换 Flipper/兜底可见性，并把各实例的显示位置定位到第 0 项。
 
-数据集刷新和归零在 MagicOS 10 上必须做真机时序验证。如果宿主对 `notifyAppWidgetViewDataChanged + setDisplayedChild(0)` 的应用顺序不稳定，降级方案是对变化后的池构建新的 RemoteAdapter 身份并执行完整 RemoteViews 更新，强制宿主重新绑定。
+数据集刷新和归零在 MagicOS 10 上必须做真机时序验证。Demo 已同时采用数据变化通知、新 RemoteAdapter 身份和完整 RemoteViews 更新，降低宿主缓存旧集合的概率。宿主自己的 8 秒定时器相位仍可能使不同宿主随后再次分离。
 
 空池时切换到非 Flipper 的兜底布局，展示“暂无推荐内容”并停止轮播。后续非空新池到达时重新显示 Flipper 并从第一条启动。
 
@@ -270,8 +265,9 @@ RemoteViews 被 Launcher/负一屏宿主加载后，翻页计时器运行在宿�
 - `appWidgetId`
 - `action`
 - `keyword`
+- `position`
 
-底部四个按钮使用按实例构建的显式 PendingIntent。为满足多实例同内容语义，任一实例发生点击后，Router 根据被点击项确定目标下一条，并将所有 `SearchToolsWidgetProvider` 实例主动对齐到该条，再执行页面导航。该主动对齐不等于宿主 8 秒计时器永久严格同步，后者仍受 4.1 节能力边界约束。
+非空池下，搜索区和底部四个按钮都位于集合项内，统一使用 PendingIntent Template + Fill-in Intent。任一入口点击后，Router 根据点击项的 `position` 计算下一项，并用完整 RemoteViews 把所有 `SearchToolsWidgetProvider` 实例定位过去，再执行页面导航。这样跳出 Launcher 后重建宿主也不会丢失瞬时 `showNext()`；自动轮播下标仍不写入 MMKV。
 
 ### 9.2 搜索区域
 
@@ -287,25 +283,25 @@ RemoteViews 被 Launcher/负一屏宿主加载后，翻页计时器运行在宿�
 - 传入当前 `keyword`。
 - 直接进入搜索结果页并展示对应结果。
 
-空池兜底状态没有真实暗词：点击搜索区域或搜索按钮均进入空白搜索激活页，不把兜底文案当作关键词。
+空池兜底状态没有真实暗词：点击搜索区域进入空白搜索激活页，点击搜索按钮进入空关键词结果页，均不把兜底文案当作关键词。
 
 ### 9.3 Router
 
 `WidgetRouterActivity` 属于 `searchtoolswidget.router` 包并运行在 `:widgetProvider` 进程，采用透明/无历史中转样式。这样可以在主 App 冷启动之前先完成组件推进，与旧锁屏 Demo 的中转思路一致：
 
 1. 校验 action 与必要参数。
-2. 调用 `WidgetInstanceUpdater` 立即对齐全部搜索工具组件实例。
+2. 根据 Fill-in Intent 中的稳定 `position` 计算下一位置，调用 `WidgetInstanceUpdater` 让全部搜索工具组件实例定位到该项。
 3. 通过稳定的显式 Intent/Deep Link 协议构造目标页面任务栈，不直接依赖 Mock 页面类。
 4. 启动目标页并结束自身。
 
 Manifest 为 Router 配置 `android:process=":widgetProvider"`、透明主题、`noHistory=true`、`excludeFromRecents=true` 和空 `taskAffinity`。Router 只做参数校验、组件推进和路由，不初始化搜索数据库或主业务对象图。
 
-集合 Fill-in Intent 需要可变 PendingIntent Template；Template 必须显式指向本应用 Router，并最小化可填充字段。普通按钮 PendingIntent 使用 immutable 标志和唯一 requestCode，避免实例间覆盖。
+集合 Fill-in Intent 需要可变 PendingIntent Template；Template 必须显式指向本应用 Router，并最小化可填充字段。只有空池兜底层使用按实例构建的 immutable PendingIntent 和唯一 requestCode。
 
 ## 10. 多进程初始化与安全
 
 1. `Application.onCreate()` 根据进程名分流；`:widgetProvider` 禁止初始化 Room、完整导航、统计 SDK 和主业务对象图。
-2. MMKV 使用固定文件 ID 和 `MULTI_PROCESS_MODE`，各进程懒加载单例 Store。
+2. MMKV 使用固定文件 ID 和 `MULTI_PROCESS_MODE`，各进程懒加载单例 Store；读取前调用 `checkContentChangedByOuterProcess()`，保证冻结/恢复后的组件进程先合并其他进程写入。
 3. AppWidgetProvider 仅处理系统 AppWidget action 和本应用显式自定义 action。
 4. 自定义刷新 Intent 设置明确 Component/Package，不暴露隐式广播面。
 5. RemoteViewsService 按平台要求声明绑定权限和导出属性。
@@ -357,7 +353,7 @@ Manifest 为 Router 配置 `android:process=":widgetProvider"`、透明主题、
 - 当前可见暗词的区域和搜索按钮携带正确 keyword。
 - 搜索激活页冻结自身暗词轮播。
 - 搜索结果页直接接收并展示对应 keyword。
-- 六个入口点击后全部搜索工具组件实例对齐到下一条。
+- 六个入口点击后全部搜索工具组件实例各自推进一条。
 - 多实例共享池；新池到达后桌面与负一屏实例都回到第 0 条。
 - 唯一周期任务不会重复注册；云配变化后周期正确更新。
 - 未同意隐私、没有组件实例、撤回隐私三种状态均不继续读库。
@@ -373,7 +369,7 @@ Manifest 为 Router 配置 `android:process=":widgetProvider"`、透明主题、
 - 相同池不重置。
 - 点击时 keyword 与屏幕当前文字严格一致。
 - 点击推进与自动 8 秒翻页临界时序。
-- 桌面与负一屏同时可见时的轮播相位偏移量，并据 P0 产品结论验收。
+- 桌面与负一屏同时可见时记录轮播相位偏移，确认不影响各自顺序和点击逻辑。
 - Launcher 和 `:widgetProvider` 分别被杀后的恢复。
 - 100、500、1000 条暗词下的加载耗时、内存和交互稳定性。
 
@@ -437,23 +433,25 @@ Manifest 为 Router 配置 `android:process=":widgetProvider"`、透明主题、
 10. **“全部实例”范围要准确**：只获取 `SearchToolsWidgetProvider` 的实例 ID，覆盖桌面和荣耀负一屏，不触碰锁屏组件或其他 Provider。
 11. **数据更新顺序固定**：先完整提交 MMKV，再发显式广播；写入失败绝不能刷新宿主。
 12. **8 秒不交给 WorkManager**：WorkManager 只做分钟级读库；`AdapterViewFlipper` 的 8 秒计时运行在桌面/负一屏宿主。
-13. **宿主 Flipper 不是全局时钟**：换池和点击可以主动对齐全部实例，但晚添加、隐藏暂停和宿主重建可能让自动轮播相位漂移；严格同词要求必须先过 P0 决策。
+13. **宿主 Flipper 不是全局时钟**：换池时全部定位第 0 条，点击时全部定位到被点击 `position` 的下一条；晚添加、隐藏暂停和宿主重建造成的后续自动轮播相位漂移属于已接受行为。
 14. **Router 放在 `:widgetProvider`**：先完成组件推进，再拉起主进程页面；Router 必须保持透明、无历史、轻量并与页面类解耦。
 15. **包边界不可混写**：搜索 Mock 统一放 `searchmock` 包族，桌面小组件全部放 `searchtoolswidget` 包族。
 16. **不要伪造系统更新广播**：应用内部刷新使用显式自定义 action，不发送受保护的 `APPWIDGET_UPDATE`。
 17. **空与失败语义不同**：成功空列表要清旧池、显示兜底并停播；读取失败保留旧池且不更新时间。
 18. **真机结论优先**：RemoteViews 集合刷新、`setDisplayedChild(0)`、点击与 8 秒临界时序必须在 MagicOS 10 桌面和负一屏分别验证。
+19. **MMKV 读取主动检查跨进程变化**：`MULTI_PROCESS_MODE` 必须在所有访问点一致使用；组件进程读取前显式检查外部变更，防止冻结进程继续渲染旧池。
 
-## 18. Review 门禁
+## 18. 实现结论与真机门禁
 
-本设计文档通过 Review 前，不进入 Demo 实现。Review 至少确认：
+Demo 已按以下默认结论完成：
 
-1. P0：多实例“同一时刻相同内容”是只要求换池/点击时主动对齐，还是要求跨桌面与负一屏的 8 秒轮播始终严格同步。
-2. 相同列表是否保持轮播进度。
-3. 数据库失败后是否短期补偿重试。
-4. 空池交互与兜底文案。
-5. 点击推进后是否要求重新计算完整 8 秒间隔。
-6. 隐私撤回时是否确认立即清空组件缓存，而不是只停止后续读取。
-7. 云配 frequency 的上下限与更新时机。
-8. MagicOS 10 负一屏是否完全复用标准 AppWidget 生命周期。
+1. 多实例不做跨宿主永久严格同步；换池定位第 0 条，点击时全部定位到被点击项的下一条。
+2. 相同完整有序列表保持轮播进度。
+3. 数据库失败最多补偿 2 次，仍失败则保留旧池并等待后续周期。
+4. 成功空池清空旧池，展示“搜索你感兴趣的内容”并停播；点击进入空白搜索激活页。
+5. 点击后不要求所有宿主重新计算统一的完整 8 秒间隔。
+6. 隐私撤回立即取消任务、清空组件缓存并刷新兜底。
+7. 云配默认 60 分钟、最低 15 分钟，本 Demo 不设业务上限。
+
+仍必须在 MagicOS 10 真机确认：荣耀负一屏是否完整复用标准 AppWidget 生命周期，以及集合刷新、归零、8 秒轮播、点击临界时序和 4×2 尺寸是否符合宿主实际行为。
 

@@ -118,7 +118,7 @@
 1. 先写六种路由动作、keyword/freeze 参数和空池语义测试并确认失败。
 2. 实现 `AdapterViewFlipper + RemoteViewsService/Factory`，8 秒宿主自动轮播。
 3. Provider 的 `onUpdate()` 渲染首次 UI；自定义换池 action 在 `onReceive()` 中处理并刷新本 Provider 的全部实例。
-4. Router 运行在 `:widgetProvider`，点击时先对全部搜索工具实例执行 `showNext()`，再显式跳转主进程页面。
+4. Router 运行在 `:widgetProvider`；集合整页携带稳定 `position`，点击时先把全部搜索工具实例定位到下一项，再显式跳转主进程页面。
 5. 配置 Provider、RemoteViewsService、Router 的进程、权限、导出和 PendingIntent 标志。
 6. 运行单测、Manifest 合并与 Debug 构建并提交。
 
@@ -136,4 +136,3 @@
 3. 运行 `testDebugUnitTest`、`lintDebug`、`assembleDebug` 和可用设备检查。
 4. 检查 Git diff、敏感信息和未跟踪构建产物。
 5. 合入 `main` 并推送 GitHub。
-

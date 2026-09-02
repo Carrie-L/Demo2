@@ -1,12 +1,12 @@
 package com.carrie.demo.searchmock.ui
 
+import android.app.Activity
 import android.os.Bundle
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
 import com.carrie.demo.R
 import com.carrie.demo.searchtoolswidget.router.WidgetNavigationContract
 
-class SearchResultActivity : AppCompatActivity() {
+class SearchResultActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_search_result)
@@ -18,4 +18,3 @@ class SearchResultActivity : AppCompatActivity() {
         }
     }
 }
-

@@ -19,11 +19,9 @@ android {
 }
 
 dependencies {
-    implementation(libs.androidx.core.ktx)
     implementation(libs.gson)
     implementation(libs.mmkv)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)
 }
-

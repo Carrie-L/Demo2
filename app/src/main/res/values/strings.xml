@@ -1,4 +1,19 @@
 <resources>
     <string name="app_name">搜索工具组件 Demo</string>
+    <string name="main_subtitle">先同意隐私，再把 4×2 组件添加到桌面。</string>
+    <string name="toggle_privacy">切换隐私同意状态</string>
+    <string name="toggle_frequency">切换 60 / 15 / 120 min</string>
+    <string name="mock_database_title">搜索模块 Mock 数据表</string>
+    <string name="write_initial_data">写入初始数据</string>
+    <string name="write_changed_data">写入全新数据</string>
+    <string name="write_duplicate_data">写入含重复文案的数据（不去重）</string>
+    <string name="clear_database">清空数据库</string>
+    <string name="sync_widget_now">立即同步一次组件</string>
+    <string name="app_page_validation">主 App 页面验证</string>
+    <string name="open_search_activation">普通进入搜索激活页</string>
+    <string name="open_empty_result">打开空关键词结果页</string>
+    <string name="search_activation_title">搜索激活页</string>
+    <string name="search_hint">搜索你感兴趣的内容</string>
+    <string name="search_action">搜索</string>
+    <string name="search_result_title">搜索结果页</string>
 </resources>
-

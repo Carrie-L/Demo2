@@ -18,7 +18,7 @@ class SearchToolsWidgetProvider : AppWidgetProvider() {
             context = context,
             manager = appWidgetManager,
             appWidgetIds = appWidgetIds,
-            resetToFirst = false,
+            displayedChild = null,
         )
     }
 
@@ -35,7 +35,7 @@ class SearchToolsWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == WidgetBroadcasts.ACTION_HINT_POOL_CHANGED) {
             WidgetStorageInitializer.initialize(context)
-            WidgetInstanceUpdater.refreshAll(context, resetToFirst = true)
+            WidgetInstanceUpdater.refreshAll(context, displayedChild = 0)
             return
         }
         super.onReceive(context, intent)

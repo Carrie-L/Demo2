@@ -8,9 +8,10 @@ class MmkvWidgetStateStore private constructor(
     private val codec: HintPoolCodec,
 ) : WidgetStateStore {
 
-    override fun readPool(): List<WidgetHintRecord> = codec.decodeOrEmpty(
-        mmkv.decodeString(KEY_HINT_POOL),
-    )
+    override fun readPool(): List<WidgetHintRecord> {
+        refreshFromOtherProcess()
+        return codec.decodeOrEmpty(mmkv.decodeString(KEY_HINT_POOL))
+    }
 
     override fun replacePool(pool: List<WidgetHintRecord>) {
         check(mmkv.encode(KEY_HINT_POOL, codec.encode(pool))) {
@@ -28,7 +29,10 @@ class MmkvWidgetStateStore private constructor(
         }
     }
 
-    override fun lastSuccessfulRefreshAtMillis(): Long = mmkv.decodeLong(KEY_LAST_SUCCESS, 0L)
+    override fun lastSuccessfulRefreshAtMillis(): Long {
+        refreshFromOtherProcess()
+        return mmkv.decodeLong(KEY_LAST_SUCCESS, 0L)
+    }
 
     override fun setPrivacyAllowed(allowed: Boolean) {
         check(mmkv.encode(KEY_PRIVACY_ALLOWED, allowed)) {
@@ -36,7 +40,10 @@ class MmkvWidgetStateStore private constructor(
         }
     }
 
-    override fun isPrivacyAllowed(): Boolean = mmkv.decodeBool(KEY_PRIVACY_ALLOWED, false)
+    override fun isPrivacyAllowed(): Boolean {
+        refreshFromOtherProcess()
+        return mmkv.decodeBool(KEY_PRIVACY_ALLOWED, false)
+    }
 
     override fun setFrequencyMinutes(minutes: Long) {
         check(mmkv.encode(KEY_FREQUENCY_MINUTES, minutes)) {
@@ -44,7 +51,14 @@ class MmkvWidgetStateStore private constructor(
         }
     }
 
-    override fun frequencyMinutes(): Long = mmkv.decodeLong(KEY_FREQUENCY_MINUTES, 60L)
+    override fun frequencyMinutes(): Long {
+        refreshFromOtherProcess()
+        return mmkv.decodeLong(KEY_FREQUENCY_MINUTES, 60L)
+    }
+
+    private fun refreshFromOtherProcess() {
+        mmkv.checkContentChangedByOuterProcess()
+    }
 
     companion object {
         private const val MMKV_ID = "search_tools_widget_state"
@@ -66,4 +80,3 @@ class MmkvWidgetStateStore private constructor(
         }
     }
 }
-

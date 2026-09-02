@@ -1,7 +1,11 @@
 package com.carrie.demo.searchmock.ui.shortcut
 
-class HistoryActivity : BaseShortcutActivity() {
-    override val pageTitle = "历史"
-    override val pageDescription = "这是搜索历史页面的 Mock 实现。"
-}
+import android.app.Activity
+import android.os.Bundle
 
+class HistoryActivity : Activity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        renderShortcutPage("历史", "这是搜索历史页面的 Mock 实现。")
+    }
+}

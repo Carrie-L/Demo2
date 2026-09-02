@@ -1,7 +1,6 @@
 package com.carrie.demo.searchtoolswidget.sync
 
 import android.content.Context
-import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
@@ -36,7 +35,10 @@ class WidgetHintSyncScheduler(context: Context) {
         val frequency = FrequencyPolicy.sanitizeMinutes(
             MockCloudConfigStore(appContext).frequencyMinutes(),
         )
-        stateStore.setFrequencyMinutes(frequency)
+        val periodicWorkPolicy = PeriodicWorkPolicySelector.select(
+            storedMinutes = stateStore.frequencyMinutes(),
+            requestedMinutes = frequency,
+        )
         val periodicRequest = PeriodicWorkRequestBuilder<WidgetHintSyncWorker>(
             frequency,
             TimeUnit.MINUTES,
@@ -44,9 +46,10 @@ class WidgetHintSyncScheduler(context: Context) {
 
         workManager.enqueueUniquePeriodicWork(
             PERIODIC_WORK_NAME,
-            ExistingPeriodicWorkPolicy.UPDATE,
+            periodicWorkPolicy,
             periodicRequest,
         )
+        stateStore.setFrequencyMinutes(frequency)
         if (enqueueImmediate) {
             enqueueImmediateSync()
         }

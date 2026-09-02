@@ -3,8 +3,8 @@ package com.carrie.demo.searchtoolswidget.provider
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
-import android.widget.RemoteViews
 import com.carrie.demo.searchtoolswidget.R
+import com.carrie.demo.searchtoolswidget.storage.MmkvWidgetStateStore
 
 @Suppress("DEPRECATION")
 object WidgetInstanceUpdater {
@@ -14,20 +14,20 @@ object WidgetInstanceUpdater {
         )
     }
 
-    fun refreshAll(context: Context, resetToFirst: Boolean) {
+    fun refreshAll(context: Context, displayedChild: Int?) {
         val manager = AppWidgetManager.getInstance(context)
         val ids = allWidgetIds(context)
         if (ids.isEmpty()) return
         manager.notifyAppWidgetViewDataChanged(ids, R.id.hint_flipper)
-        WidgetRemoteViewsRenderer.render(context, manager, ids, resetToFirst)
+        WidgetRemoteViewsRenderer.render(context, manager, ids, displayedChild)
     }
 
-    fun advanceAll(context: Context) {
+    fun advanceAll(context: Context, clickedPosition: Int) {
         val ids = allWidgetIds(context)
         if (ids.isEmpty()) return
-        val views = RemoteViews(context.packageName, R.layout.widget_search_tools).apply {
-            showNext(R.id.hint_flipper)
-        }
-        AppWidgetManager.getInstance(context).partiallyUpdateAppWidget(ids, views)
+        val poolSize = MmkvWidgetStateStore.get().readPool().size
+        val nextPosition = HintPositionPolicy.next(clickedPosition, poolSize) ?: return
+        val manager = AppWidgetManager.getInstance(context)
+        WidgetRemoteViewsRenderer.render(context, manager, ids, nextPosition)
     }
 }

@@ -19,7 +19,13 @@ class WidgetRouterActivity : Activity() {
             return
         }
 
-        WidgetInstanceUpdater.advanceAll(this)
+        WidgetInstanceUpdater.advanceAll(
+            context = this,
+            clickedPosition = intent.getIntExtra(
+                WidgetClickContract.EXTRA_HINT_POSITION,
+                WidgetClickContract.NO_HINT_POSITION,
+            ),
+        )
         val route = WidgetRoute.resolve(
             action = action,
             keyword = intent.getStringExtra(WidgetClickContract.EXTRA_KEYWORD),
@@ -38,4 +44,3 @@ class WidgetRouterActivity : Activity() {
         finish()
     }
 }
-

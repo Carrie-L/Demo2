@@ -2,7 +2,6 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFF7F0"
     android:fillViewport="true">
 
     <LinearLayout
@@ -14,7 +13,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="搜索工具组件 Demo"
+            android:text="@string/app_name"
             android:textColor="#FF24211F"
             android:textSize="26sp"
             android:textStyle="bold" />
@@ -23,7 +22,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="先同意隐私，再把 4×2 组件添加到桌面。"
+            android:text="@string/main_subtitle"
             android:textColor="#FF706A66"
             android:textSize="15sp" />
 
@@ -48,7 +47,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:background="@drawable/bg_primary_button"
-                android:text="切换隐私同意状态"
+                android:text="@string/toggle_privacy"
                 android:textColor="#FFFFFFFF" />
 
             <TextView
@@ -64,7 +63,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="切换 60 / 15 / 120 min" />
+                android:text="@string/toggle_frequency" />
         </LinearLayout>
 
         <LinearLayout
@@ -77,7 +76,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="搜索模块 Mock 数据表"
+                android:text="@string/mock_database_title"
                 android:textColor="#FF24211F"
                 android:textSize="18sp"
                 android:textStyle="bold" />
@@ -97,32 +96,32 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:text="写入初始数据" />
+                android:text="@string/write_initial_data" />
 
             <Button
                 android:id="@+id/data_changed_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="写入全新数据" />
+                android:text="@string/write_changed_data" />
 
             <Button
                 android:id="@+id/data_duplicate_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="写入含重复文案的数据（不去重）" />
+                android:text="@string/write_duplicate_data" />
 
             <Button
                 android:id="@+id/data_empty_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="清空数据库" />
+                android:text="@string/clear_database" />
 
             <Button
                 android:id="@+id/sync_now_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_primary_button"
-                android:text="立即同步一次组件"
+                android:text="@string/sync_widget_now"
                 android:textColor="#FFFFFFFF" />
         </LinearLayout>
 
@@ -137,7 +136,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="主 App 页面验证"
+                android:text="@string/app_page_validation"
                 android:textColor="#FF24211F"
                 android:textSize="18sp"
                 android:textStyle="bold" />
@@ -147,14 +146,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="普通进入搜索激活页" />
+                android:text="@string/open_search_activation" />
 
             <Button
                 android:id="@+id/open_result_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="打开空关键词结果页" />
+                android:text="@string/open_empty_result" />
         </LinearLayout>
     </LinearLayout>
 </ScrollView>
-

@@ -1,0 +1,64 @@
+# Demo2：搜索工具桌面与负一屏小组件
+
+这是一个按正式项目边界实现的 Android Demo：页面和搜索数据是 Mock，组件、多进程、数据库查询、MMKV、WorkManager、RemoteViews 和路由流程可迁移到真实项目。
+
+## 环境
+
+- Android Studio（JDK 17）
+- Android SDK 36
+- `minSdk 29` / `targetSdk 36`
+- Kotlin + XML，不使用 Compose/Glance
+- 目标设备：荣耀 MagicOS 10（Android 16）
+
+用 Android Studio 直接打开仓库根目录即可。命令行构建：
+
+```powershell
+$env:JAVA_HOME='C:\Program Files\Java\jdk-17'
+.\gradlew.bat testDebugUnitTest lintDebug assembleDebug
+```
+
+Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
+
+## Demo 操作
+
+1. 启动 App，点击“切换隐私同意状态”，直到页面显示“已同意”。
+2. 在桌面或荣耀负一屏添加“常用搜索工具”组件，尺寸选择 4×2。
+3. 第一个组件添加后会立即安排一次 Worker；成功后组件显示数据库暗词并每 8 秒轮播。
+4. “写入初始/全新/含重复文案/清空数据库”只修改搜索 Mock 表，不主动通知组件。
+5. 点击“立即同步一次组件”模拟一次组件侧主动读库，便于观察相同池、换池和空池行为。
+6. 点击暗词进入搜索激活页：当前词写入 App 搜索框，App 自身暗词轮播被冻结。
+7. 点击“搜索”进入对应结果页；点击收藏、历史、天气、设置进入四个不同 Mock 页面。
+8. 每个组件入口随当前集合页携带稳定位置；点击后所有“常用搜索工具”实例立即定位到下一条暗词。
+
+## 已实现语义
+
+- 搜索页和 Worker 调用同一个 `SearchHintDao.queryHints()`。
+- 小组件不额外去重、过滤或排序；重复文案会按数据库原始记录保留。
+- 新旧池按完整有序 `WidgetHintRecord` 列表比较，等价于 `newPool == oldPool`。
+- 相同池只更新成功时间，不打断当前轮播；变化池整体覆盖 MMKV，并让所有实例回到第 0 条。
+- 读取成功但结果为空：清空旧池、显示兜底文案并停止轮播。
+- 读取失败：保留旧池，最多补偿 2 次，本轮结束后仍保留后续周期任务。
+- 默认周期 60 分钟，Mock 云配可切换 15/60/120 分钟；低于 15 分钟会钳制为 15。
+- 周期频率未变时保留既有 WorkManager 计时；只有频率变化才更新周期任务，App 冷启动不会重置一小时倒计时。
+- 只有“隐私已同意且至少存在一个组件实例”才读库；撤回隐私会取消任务、清池并刷新兜底。
+- MMKV 使用 `MULTI_PROCESS_MODE`，读取前检查其他进程写入；Provider、RemoteViewsService 和 Router 运行在 `:widgetProvider`。
+- 自定义 `ACTION_HINT_POOL_CHANGED` 在 Provider 的 `onReceive()` 处理；系统首次 UI 由 `onUpdate()` 设置。
+
+## 多实例说明
+
+桌面和负一屏实例共享同一数据池。新池到达时全部定位第一条；点击时根据当前页 `position` 计算下一条，并用完整 RemoteViews 更新所有实例，避免跳出 Launcher 后丢失瞬时命令。8 秒计时仍由各宿主的 `AdapterViewFlipper` 独立维护，不要求不同宿主永久显示同一条；晚添加、隐藏暂停或宿主重建造成的后续相位偏移属于已接受行为。
+
+## 工程边界
+
+- `app/.../searchmock/*`：Mock 搜索数据库、隐私/云配和页面。
+- `app/.../searchtoolswidget/sync/*`：运行在主进程的 Worker、Scheduler 和 Receiver。
+- `widget/.../searchtoolswidget/*`：MMKV Store、Provider、RemoteViews、Router 和组件资源。
+
+详细设计见 [搜索工具桌面与负一屏小组件技术设计](docs/plans/2026-09-02-search-tools-app-widget-design.md)。
+
+## 仍需荣耀真机验收
+
+- MagicOS 10 负一屏是否完整复用标准 AppWidget 生命周期。
+- `notifyAppWidgetViewDataChanged + setDisplayedChild(0)` 的实际执行顺序。
+- 桌面/负一屏可见性切换、熄屏恢复和 Launcher 重建后的 Flipper 行为。
+- 4×2 尺寸、点击与自动翻页临界时序。

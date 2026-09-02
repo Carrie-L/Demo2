@@ -2,14 +2,13 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFF7F0"
     android:orientation="vertical"
     android:padding="24dp">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="搜索激活页"
+        android:text="@string/search_activation_title"
         android:textColor="#FF24211F"
         android:textSize="26sp"
         android:textStyle="bold" />
@@ -20,7 +19,8 @@
         android:layout_height="56dp"
         android:layout_marginTop="22dp"
         android:background="@drawable/bg_panel"
-        android:hint="搜索你感兴趣的内容"
+        android:hint="@string/search_hint"
+        android:importantForAutofill="no"
         android:inputType="text"
         android:maxLines="1"
         android:paddingHorizontal="18dp"
@@ -42,7 +42,6 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="18dp"
         android:background="@drawable/bg_primary_button"
-        android:text="搜索"
+        android:text="@string/search_action"
         android:textColor="#FFFFFFFF" />
 </LinearLayout>
-
