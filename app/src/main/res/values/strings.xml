@@ -8,7 +8,6 @@
     <string name="write_changed_data">写入全新数据</string>
     <string name="write_duplicate_data">写入含重复文案的数据（不去重）</string>
     <string name="clear_database">清空数据库</string>
-    <string name="sync_widget_now">立即同步一次组件</string>
     <string name="app_page_validation">主 App 页面验证</string>
     <string name="open_search_activation">普通进入搜索激活页</string>
     <string name="open_empty_result">打开空关键词结果页</string>

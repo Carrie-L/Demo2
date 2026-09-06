@@ -1,20 +1,10 @@
 package com.carrie.demo.searchtoolswidget.router
 
+/** widget 模块通过 ARouter 交给主 App 页面的参数协议。 */
 object WidgetNavigationContract {
+    /** 搜索入口携带的当前暗词。 */
     const val EXTRA_KEYWORD = "widget_keyword"
+
+    /** 搜索激活页是否停止主 App 原有暗词轮播，并固定展示带入词。 */
     const val EXTRA_FREEZE_HINT_ROTATION = "freeze_hint_rotation"
-
-    const val SEARCH_ACTIVATION_CLASS =
-        "com.carrie.demo.searchmock.ui.SearchActivationActivity"
-    const val SEARCH_RESULT_CLASS =
-        "com.carrie.demo.searchmock.ui.SearchResultActivity"
-    const val FAVORITES_CLASS =
-        "com.carrie.demo.searchmock.ui.shortcut.FavoritesActivity"
-    const val HISTORY_CLASS =
-        "com.carrie.demo.searchmock.ui.shortcut.HistoryActivity"
-    const val WEATHER_CLASS =
-        "com.carrie.demo.searchmock.ui.shortcut.WeatherActivity"
-    const val SETTINGS_CLASS =
-        "com.carrie.demo.searchmock.ui.shortcut.SettingsActivity"
 }
-

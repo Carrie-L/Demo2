@@ -1,5 +1,6 @@
 [versions]
 agp = "9.2.1"
+arouter = "1.5.2"
 espresso = "3.7.0"
 gson = "2.13.2"
 junit = "4.13.2"
@@ -8,6 +9,8 @@ mmkv = "2.4.1"
 work = "2.11.2"
 
 [libraries]
+arouter-api = { group = "com.alibaba", name = "arouter-api", version.ref = "arouter" }
+arouter-compiler = { group = "com.alibaba", name = "arouter-compiler", version.ref = "arouter" }
 androidx-test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxJunit" }
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
@@ -18,3 +21,4 @@ mmkv = { group = "com.tencent", name = "mmkv", version.ref = "mmkv" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
+legacy-kapt = { id = "com.android.legacy-kapt", version.ref = "agp" }

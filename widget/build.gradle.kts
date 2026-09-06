@@ -19,6 +19,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.arouter.api)
     implementation(libs.gson)
     implementation(libs.mmkv)
 

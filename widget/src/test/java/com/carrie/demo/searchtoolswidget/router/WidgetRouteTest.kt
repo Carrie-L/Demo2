@@ -11,7 +11,7 @@ class WidgetRouteTest {
     fun `search surface opens activation page with keyword and frozen app hints`() {
         val route = WidgetRoute.resolve(WidgetAction.SEARCH_ACTIVATE, "露营天气")
 
-        assertEquals(WidgetNavigationContract.SEARCH_ACTIVATION_CLASS, route.targetClassName)
+        assertEquals("/search/activation", route.targetRoutePath)
         assertEquals("露营天气", route.keyword)
         assertTrue(route.freezeHintRotation)
     }
@@ -28,7 +28,7 @@ class WidgetRouteTest {
     fun `search button opens result page with current keyword`() {
         val route = WidgetRoute.resolve(WidgetAction.SEARCH_SUBMIT, "Android Widget")
 
-        assertEquals(WidgetNavigationContract.SEARCH_RESULT_CLASS, route.targetClassName)
+        assertEquals("/search/result", route.targetRoutePath)
         assertEquals("Android Widget", route.keyword)
         assertFalse(route.freezeHintRotation)
     }
@@ -40,17 +40,16 @@ class WidgetRouteTest {
             WidgetAction.HISTORY,
             WidgetAction.WEATHER,
             WidgetAction.SETTINGS,
-        ).map { WidgetRoute.resolve(it, null).targetClassName }
+        ).map { WidgetRoute.resolve(it, null).targetRoutePath }
 
         assertEquals(
             listOf(
-                WidgetNavigationContract.FAVORITES_CLASS,
-                WidgetNavigationContract.HISTORY_CLASS,
-                WidgetNavigationContract.WEATHER_CLASS,
-                WidgetNavigationContract.SETTINGS_CLASS,
+                "/tools/favorites",
+                "/tools/history",
+                "/tools/weather",
+                "/tools/settings",
             ),
             targets,
         )
     }
 }
-

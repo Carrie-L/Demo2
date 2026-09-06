@@ -1,6 +1,6 @@
 # Demo2：搜索工具桌面与负一屏小组件
 
-这是一个按正式项目边界实现的 Android Demo：页面和搜索数据是 Mock，组件、多进程、数据库查询、MMKV、WorkManager、RemoteViews 和路由流程可迁移到真实项目。
+这是一个按正式项目边界实现的 Android Demo：页面和搜索数据是 Mock，组件、数据库查询、MMKV、WorkManager、RemoteViews 和 ARouter 路由流程可迁移到真实项目。
 
 ## 环境
 
@@ -24,11 +24,10 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
 1. 启动 App，点击“切换隐私同意状态”，直到页面显示“已同意”。
 2. 在桌面或荣耀负一屏添加“常用搜索工具”组件，尺寸选择 4×2。
 3. 第一个组件添加后会立即安排一次 Worker；成功后组件显示数据库暗词并每 8 秒轮播。
-4. “写入初始/全新/含重复文案/清空数据库”只修改搜索 Mock 表，不主动通知组件。
-5. 点击“立即同步一次组件”模拟一次组件侧主动读库，便于观察相同池、换池和空池行为。
-6. 点击暗词进入搜索激活页：当前词写入 App 搜索框，App 自身暗词轮播被冻结。
-7. 点击“搜索”进入对应结果页；点击收藏、历史、天气、设置进入四个不同 Mock 页面。
-8. 每个组件入口随当前集合页携带稳定位置；点击后所有“常用搜索工具”实例立即定位到下一条暗词。
+4. “写入初始/全新/含重复文案/清空数据库”只修改搜索 Mock 表，不主动通知组件；组件等下一次周期任务读取。
+5. 点击暗词进入搜索激活页：当前词写入 App 搜索框，App 自身暗词轮播被冻结。
+6. 点击“搜索”进入对应结果页；点击收藏、历史、天气、设置进入四个不同 Mock 页面。
+7. 点击任意组件入口后，仅被点击的那个实例通过 `showNext()` 立即显示下一条暗词。
 
 ## 已实现语义
 
@@ -39,14 +38,17 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
 - 读取成功但结果为空：清空旧池、显示兜底文案并停止轮播。
 - 读取失败：保留旧池，最多补偿 2 次，本轮结束后仍保留后续周期任务。
 - 默认周期 60 分钟，Mock 云配可切换 15/60/120 分钟；低于 15 分钟会钳制为 15。
-- 周期频率未变时保留既有 WorkManager 计时；只有频率变化才更新周期任务，App 冷启动不会重置一小时倒计时。
+- 周期频率未变时 `KEEP` 既有 WorkManager 计时；频率变化时 `UPDATE` 同名任务并保留已经过去的计时时间。例如 60→15 时，若旧周期已经过了 15 分钟，新任务会尽快具备执行资格，不额外创建一次性立即任务。
 - 只有“隐私已同意且至少存在一个组件实例”才读库；撤回隐私会取消任务、清池并刷新兜底。
-- MMKV 使用 `MULTI_PROCESS_MODE`，读取前检查其他进程写入；Provider、RemoteViewsService 和 Router 运行在 `:widgetProvider`。
-- 自定义 `ACTION_HINT_POOL_CHANGED` 在 Provider 的 `onReceive()` 处理；系统首次 UI 由 `onUpdate()` 设置。
+- Provider、RemoteViewsService、Router、Worker 和页面统一运行在主进程；MMKV 使用 `SINGLE_PROCESS_MODE`。
+- API 29～30 使用 `RemoteViewsService/RemoteViewsFactory`；API 31+ 使用系统原生 `RemoteViews.RemoteCollectionItems`，未增加 AndroidX RemoteViews 依赖。
+- Flipper item 只包含暗词与搜索按钮，底部四个工具按钮固定在根布局；轮播切换动画已取消。
+- 组件点击先进入 `WidgetRouterActivity`，只对来源 `appWidgetId` 下发 `showNext()`，再通过共享 `RoutePath` 和 ARouter 跳转。
+- 自定义 `ACTION_HINT_POOL_CHANGED` 在 Provider 的 `onReceive()` 处理；系统首次 UI 由 `onUpdate()` 设置。同一进程内重复的系统 `onUpdate()` 不重建已初始化实例，避免当前轮播归零。
 
 ## 多实例说明
 
-桌面和负一屏实例共享同一数据池。新池到达时全部定位第一条；点击时根据当前页 `position` 计算下一条，并用完整 RemoteViews 更新所有实例，避免跳出 Launcher 后丢失瞬时命令。8 秒计时仍由各宿主的 `AdapterViewFlipper` 独立维护，不要求不同宿主永久显示同一条；晚添加、隐藏暂停或宿主重建造成的后续相位偏移属于已接受行为。
+桌面和负一屏实例共享同一数据池。新池到达时全部定位第一条；普通点击只推进来源实例，其他实例保持自己的当前位置。8 秒计时由各宿主的 `AdapterViewFlipper` 独立维护，不要求不同宿主永久显示同一条；晚添加、隐藏暂停、应用进程死亡或宿主重建造成的后续相位偏移属于已接受行为。
 
 ## 工程边界
 
@@ -54,11 +56,11 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
 - `app/.../searchtoolswidget/sync/*`：运行在主进程的 Worker、Scheduler 和 Receiver。
 - `widget/.../searchtoolswidget/*`：MMKV Store、Provider、RemoteViews、Router 和组件资源。
 
-详细设计见 [搜索工具桌面与负一屏小组件技术设计](docs/plans/2026-09-02-search-tools-app-widget-design.md)。
+详细设计见 [RemoteViews 正式化重构设计](docs/plans/2026-09-06-widget-remoteviews-refactor-design.md)。
 
 ## 仍需荣耀真机验收
 
 - MagicOS 10 负一屏是否完整复用标准 AppWidget 生命周期。
-- `notifyAppWidgetViewDataChanged + setDisplayedChild(0)` 的实际执行顺序。
+- API 29～30 `notifyAppWidgetViewDataChanged + setDisplayedChild(0)` 的实际执行顺序，以及 API 31+ 内联集合表现。
 - 桌面/负一屏可见性切换、熄屏恢复和 Launcher 重建后的 Flipper 行为。
-- 4×2 尺寸、点击与自动翻页临界时序。
+- 4×2 尺寸、无动画切换、点击 `showNext()` 与自动翻页临界时序。

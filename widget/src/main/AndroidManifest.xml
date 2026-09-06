@@ -4,8 +4,7 @@
     <application>
         <receiver
             android:name=".provider.SearchToolsWidgetProvider"
-            android:exported="true"
-            android:process=":widgetProvider">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -18,15 +17,13 @@
         <service
             android:name=".remote.HintRemoteViewsService"
             android:exported="false"
-            android:permission="android.permission.BIND_REMOTEVIEWS"
-            android:process=":widgetProvider" />
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
 
         <activity
             android:name=".router.WidgetRouterActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"
-            android:process=":widgetProvider"
             android:taskAffinity=""
             android:theme="@style/Theme.Demo2.WidgetRouter" />
     </application>

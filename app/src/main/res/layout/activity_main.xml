@@ -116,13 +116,6 @@
                 android:layout_height="wrap_content"
                 android:text="@string/clear_database" />
 
-            <Button
-                android:id="@+id/sync_now_button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="@drawable/bg_primary_button"
-                android:text="@string/sync_widget_now"
-                android:textColor="#FFFFFFFF" />
         </LinearLayout>
 
         <LinearLayout

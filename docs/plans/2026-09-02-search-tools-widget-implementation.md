@@ -1,12 +1,15 @@
 # 搜索工具桌面与负一屏小组件实施计划
 
+> 历史实施记录：后续 RemoteViews 结构和多实例点击语义已调整。当前有效实施计划请以
+> [2026-09-06 重构实施计划](2026-09-06-widget-remoteviews-refactor-implementation.md) 为准。
+
 > **For Codex:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** 创建一个可由 Android Studio 直接打开运行的 Kotlin + XML Demo，实现搜索 Mock 数据库、MMKV 跨进程暗词池、WorkManager 周期同步以及桌面/荣耀负一屏 4×2 搜索工具组件。
+**Goal:** 创建一个可由 Android Studio 直接打开运行的 Kotlin + XML Demo，实现搜索 Mock 数据库、MMKV 单进程暗词池、WorkManager 周期同步以及桌面/荣耀负一屏 4×2 搜索工具组件。
 
-**Architecture:** 工程采用 `:app + :widget` 双模块。`:app` 提供 Mock 搜索域、隐私 SP、SQLite DAO、页面和主进程 Worker；`:widget` 提供 `:widgetProvider` 进程中的 Provider、RemoteViewsService、MMKV Store 和 Router。多个实例共享池，新池到达时统一回到第一条；每个宿主随后独立执行 8 秒 Flipper 计时，不保证永久严格同步。
+**Architecture:** 工程采用 `:app + :widget` 双模块。`:app` 提供 Mock 搜索域、隐私 SP、SQLite DAO、页面和主进程 Worker；`:widget` 提供同在主进程中的 Provider、RemoteViewsService、MMKV Store 和 Router。多个实例共享池，新池到达时统一回到第一条；每个宿主随后独立执行 8 秒 Flipper 计时，不保证永久严格同步。点击先由 Router 推进共享暗词，再以统一 `RoutePath` 交给 ARouter 跳转。
 
-**Tech Stack:** Android API 29–36、Kotlin、XML/RemoteViews、SQLiteOpenHelper、WorkManager 2.11.2、MMKV 2.4.1、Gson、JUnit4。
+**Tech Stack:** Android API 29–36、Kotlin、XML/RemoteViews、SQLiteOpenHelper、WorkManager 2.11.2、MMKV 2.4.1、ARouter 1.5.2、Gson、JUnit4。
 
 ---
 
@@ -26,7 +29,7 @@
 **Steps:**
 
 1. 创建 `:app + :widget` Kotlin/XML 工程，配置 `minSdk 29`、`compileSdk 36`、`targetSdk 36`。
-2. 配置 WorkManager、MMKV、Gson、AppCompat 与测试依赖。
+2. 配置 WorkManager、MMKV、Gson、AppCompat、ARouter 与测试依赖；Kotlin 模块配置 kapt 和 `AROUTER_MODULE_NAME`。
 3. 使用 JDK 17 运行 `./gradlew projects`，确认两个模块均被识别。
 4. 提交工程骨架。
 
@@ -77,7 +80,7 @@
 **Steps:**
 
 1. 先写记录池 JSON 往返、空池和坏 JSON 测试并确认失败。
-2. 实现 Gson Codec 和 MMKV 多进程 Store；暗词池使用单 key 整体覆盖。
+2. 实现 Gson Codec 和 MMKV 单进程 Store；暗词池使用单 key 整体覆盖。
 3. 先写成功相同、成功变化、成功空、数据库失败的同步引擎测试并确认失败。
 4. 实现同步引擎，只有变化池才要求刷新；成功时间独立更新。
 5. 运行单测并提交。
@@ -115,11 +118,11 @@
 
 **Steps:**
 
-1. 先写六种路由动作、keyword/freeze 参数和空池语义测试并确认失败。
+1. 先写六种路由动作、`RoutePath`、keyword/freeze 参数和空池语义测试并确认失败。
 2. 实现 `AdapterViewFlipper + RemoteViewsService/Factory`，8 秒宿主自动轮播。
 3. Provider 的 `onUpdate()` 渲染首次 UI；自定义换池 action 在 `onReceive()` 中处理并刷新本 Provider 的全部实例。
-4. Router 运行在 `:widgetProvider`；集合整页携带稳定 `position`，点击时先把全部搜索工具实例定位到下一项，再显式跳转主进程页面。
-5. 配置 Provider、RemoteViewsService、Router 的进程、权限、导出和 PendingIntent 标志。
+4. Router 运行在主进程；集合整页携带稳定 `position`，点击时先把全部搜索工具实例定位到下一项，再通过 ARouter 跳转 `RoutePath` 对应页面。
+5. 配置 Provider、RemoteViewsService、Router 的权限、导出和 PendingIntent 标志；不声明独立 `android:process`。
 6. 运行单测、Manifest 合并与 Debug 构建并提交。
 
 ### Task 7：验收、说明与推送

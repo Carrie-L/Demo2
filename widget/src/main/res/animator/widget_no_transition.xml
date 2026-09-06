@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AdapterViewFlipper 的 inAnimation/outAnimation 由 AnimatorInflater 读取，必须使用
+  animator/objectAnimator 格式，不能使用旧式 res/anim 下的 alpha Animation。
+  透明度始终为 1 且时长为 0ms，因此暗词直接切换，不发生淡入淡出。
+-->
+<objectAnimator xmlns:android="http://schemas.android.com/apk/res/android"
+    android:duration="0"
+    android:propertyName="alpha"
+    android:valueFrom="1.0"
+    android:valueTo="1.0"
+    android:valueType="floatType" />

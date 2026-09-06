@@ -1,29 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+  小组件根布局：上方只有暗词集合会切换，下方四个工具按钮始终静止。
+  不要再把工具按钮放进 widget_hint_item，否则每 8 秒会跟着整个 item 重绘。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
+    android:orientation="vertical"
     android:padding="9dp">
 
-    <AdapterViewFlipper
-        android:id="@+id/hint_flipper"
+    <!-- Flipper 与空态是同级视图，便于 setEmptyView 和显隐控制。 -->
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:animateFirstView="false"
-        android:autoStart="true"
-        android:flipInterval="8000"
-        android:loopViews="true" />
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
-    <LinearLayout
-        android:id="@+id/empty_hint_container"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical">
-
-        <LinearLayout
+        <!--
+          8 秒计时由桌面/负一屏宿主执行，不依赖 App Activity 是否在后台。
+          in/outAnimation 都是 0ms 无变化动画，即切换时没有淡入淡出。
+        -->
+        <AdapterViewFlipper
+            android:id="@+id/hint_flipper"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
+            android:layout_height="match_parent"
+            android:animateFirstView="false"
+            android:autoStart="true"
+            android:flipInterval="8000"
+            android:inAnimation="@animator/widget_no_transition"
+            android:loopViews="true"
+            android:outAnimation="@animator/widget_no_transition" />
+
+        <!-- 隐私未同意或暗词池为空时显示兜底文案；空池本身不会发生轮播。 -->
+        <LinearLayout
+            android:id="@+id/empty_hint_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
             android:orientation="horizontal">
 
             <TextView
@@ -53,62 +65,63 @@
                 android:textSize="13sp"
                 android:textStyle="bold" />
         </LinearLayout>
+    </FrameLayout>
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="38dp"
-            android:layout_marginTop="7dp"
-            android:orientation="horizontal">
+    <!-- 静态工具区：不属于 AdapterViewFlipper 的 item，不参与每 8 秒的内容切换。 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="38dp"
+        android:layout_marginTop="7dp"
+        android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/tool_favorites"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_marginEnd="3dp"
-                android:layout_weight="1"
-                android:background="@drawable/widget_tool_button"
-                android:gravity="center"
-                android:text="@string/widget_favorites"
-                android:textColor="#FF4B443F"
-                android:textSize="12sp" />
+        <TextView
+            android:id="@+id/tool_favorites"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_tool_button"
+            android:gravity="center"
+            android:text="@string/widget_favorites"
+            android:textColor="#FF4B443F"
+            android:textSize="12sp" />
 
-            <TextView
-                android:id="@+id/tool_history"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_marginStart="3dp"
-                android:layout_marginEnd="3dp"
-                android:layout_weight="1"
-                android:background="@drawable/widget_tool_button"
-                android:gravity="center"
-                android:text="@string/widget_history"
-                android:textColor="#FF4B443F"
-                android:textSize="12sp" />
+        <TextView
+            android:id="@+id/tool_history"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginStart="3dp"
+            android:layout_marginEnd="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_tool_button"
+            android:gravity="center"
+            android:text="@string/widget_history"
+            android:textColor="#FF4B443F"
+            android:textSize="12sp" />
 
-            <TextView
-                android:id="@+id/tool_weather"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_marginStart="3dp"
-                android:layout_marginEnd="3dp"
-                android:layout_weight="1"
-                android:background="@drawable/widget_tool_button"
-                android:gravity="center"
-                android:text="@string/widget_weather"
-                android:textColor="#FF4B443F"
-                android:textSize="12sp" />
+        <TextView
+            android:id="@+id/tool_weather"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginStart="3dp"
+            android:layout_marginEnd="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_tool_button"
+            android:gravity="center"
+            android:text="@string/widget_weather"
+            android:textColor="#FF4B443F"
+            android:textSize="12sp" />
 
-            <TextView
-                android:id="@+id/tool_settings"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_marginStart="3dp"
-                android:layout_weight="1"
-                android:background="@drawable/widget_tool_button"
-                android:gravity="center"
-                android:text="@string/widget_settings"
-                android:textColor="#FF4B443F"
-                android:textSize="12sp" />
-        </LinearLayout>
+        <TextView
+            android:id="@+id/tool_settings"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginStart="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_tool_button"
+            android:gravity="center"
+            android:text="@string/widget_settings"
+            android:textColor="#FF4B443F"
+            android:textSize="12sp" />
     </LinearLayout>
-</FrameLayout>
+</LinearLayout>

@@ -8,11 +8,14 @@ import android.os.Looper
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
+import com.alibaba.android.arouter.facade.annotation.Route
 import com.carrie.demo.R
 import com.carrie.demo.searchmock.data.SearchMockGraph
 import com.carrie.demo.searchmock.domain.SearchLaunchState
 import com.carrie.demo.searchtoolswidget.router.WidgetNavigationContract
+import com.carrie.demo.searchtoolswidget.router.RoutePath
 
+@Route(path = RoutePath.SEARCH_ACTIVATION)
 class SearchActivationActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var searchInput: EditText
