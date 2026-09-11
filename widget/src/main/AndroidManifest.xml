@@ -19,12 +19,13 @@
             android:exported="false"
             android:permission="android.permission.BIND_REMOTEVIEWS" />
 
+        <!-- 与主 App 同进程、同任务；入口无 Logo，不使用独立 affinity 造成额外任务切换。
+             保留至路由回调完成再 finish，不能 noHistory 在异步路由等待期间提前销毁。
+             singleTop 配合 PendingIntent 的 CLEAR_TOP，让再次点击走 onNewIntent。 -->
         <activity
             android:name=".router.WidgetRouterActivity"
-            android:excludeFromRecents="true"
             android:exported="false"
-            android:noHistory="true"
-            android:taskAffinity=""
+            android:launchMode="singleTop"
             android:theme="@style/Theme.Demo2.WidgetRouter" />
     </application>
 

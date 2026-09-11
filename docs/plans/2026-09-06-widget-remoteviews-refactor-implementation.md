@@ -1,5 +1,8 @@
 # Search Tools Widget RemoteViews Refactor Implementation Plan
 
+> 历史执行记录，不再据此实现“来源实例隔离 / partial showNext”。2026-09-11 已改为全部实例
+> 完整更新 + 单次 showNext，原因与当前实现见 [点击链路修复说明](2026-09-11-widget-click-fixes.md)。
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Refactor the search tools widget into a documented, instance-isolated implementation that keeps host-driven 8-second rotation, uses `showNext()` for click advancement, and selects the native API 31+ collection path or the API 29–30 service path without a new AndroidX RemoteViews dependency.

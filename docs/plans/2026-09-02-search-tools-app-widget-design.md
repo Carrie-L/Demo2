@@ -1,7 +1,8 @@
 # 搜索工具桌面与负一屏小组件技术设计
 
-> 历史文档：其中“完整 item、点击推进全部实例”等方案已废弃。当前有效设计请以
-> [2026-09-06 RemoteViews 正式化重构设计](2026-09-06-widget-remoteviews-refactor-design.md) 为准。
+> 历史文档：完整 item、按 position 定位及旧中转页配置不再采用。点击范围于 2026-09-11
+> 重新确认为全部实例各自 showNext。当前以 [RemoteViews 正式化重构设计](2026-09-06-widget-remoteviews-refactor-design.md)
+> 和 [点击链路修复说明](2026-09-11-widget-click-fixes.md) 为准。
 
 - 状态：已评审并完成 Demo 实现，待 MagicOS 10 真机验收
 - 日期：2026-09-02

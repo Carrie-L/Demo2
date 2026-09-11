@@ -1,10 +1,15 @@
 <resources>
+    <!--
+        中转页不设置内容布局、Logo 或 ActionBar；禁用启动预览和窗口动画。
+        保持可存活的透明 Activity，以等待正式项目可能存在的异步 ARouter 拦截器。
+        不使用 Theme.NoDisplay：该主题要求在 onResume 前结束，无法安全等待异步路由。
+    -->
     <style name="Theme.Demo2.WidgetRouter" parent="android:style/Theme.Translucent.NoTitleBar">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowDisablePreview">true</item>
         <item name="android:backgroundDimEnabled">false</item>
         <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
     </style>
 </resources>
-

@@ -19,8 +19,9 @@ import com.carrie.demo.searchtoolswidget.storage.MmkvWidgetStateStore
 /**
  * 构建并下发小组件的完整 RemoteViews。
  *
- * 完整渲染只用于首次显示和暗词池真正替换。日常 8 秒轮播由桌面宿主中的
- * AdapterViewFlipper 自己完成；用户点击后的前进则由 showNext 局部命令完成。
+ * 首次显示、暗词池替换和点击时下发完整 RemoteViews。日常 8 秒轮播由桌面宿主中的
+ * AdapterViewFlipper 自己完成。点击时不设置索引，只在完整更新末尾附加 showNext。
+ * 不能把 showNext 单独放入局部更新：系统合并时会忽略它，详见 WidgetInstanceUpdater。
  */
 object WidgetRemoteViewsRenderer {
     /** 为系统指定的组件实例下发同一份池数据，但保留每个实例独立的点击身份。 */
@@ -29,6 +30,7 @@ object WidgetRemoteViewsRenderer {
         manager: AppWidgetManager,
         appWidgetIds: IntArray,
         displayedChild: Int?,
+        advance: Boolean = false,
     ) {
         val store = MmkvWidgetStateStore.get()
         val pool = store.readPool()
@@ -42,6 +44,7 @@ object WidgetRemoteViewsRenderer {
                     displayedChild = displayedChild,
                     hasRenderablePool = hasRenderablePool,
                     pool = pool,
+                    advance = advance && hasRenderablePool,
                 ),
             )
         }
@@ -54,6 +57,7 @@ object WidgetRemoteViewsRenderer {
         displayedChild: Int?,
         hasRenderablePool: Boolean,
         pool: List<WidgetHintRecord>,
+        advance: Boolean,
     ): RemoteViews {
         return RemoteViews(context.packageName, R.layout.widget_search_tools).apply {
             // Flipper 里的每个 item 只含“暗词 + 搜索按钮”；底部工具区属于根布局，
@@ -67,10 +71,6 @@ object WidgetRemoteViewsRenderer {
             setViewVisibility(
                 R.id.empty_hint_container,
                 if (hasRenderablePool) View.GONE else View.VISIBLE,
-            )
-            setPendingIntentTemplate(
-                R.id.hint_flipper,
-                WidgetPendingIntents.collectionTemplate(context, appWidgetId),
             )
             if (displayedChild != null) {
                 setDisplayedChild(R.id.hint_flipper, displayedChild)
@@ -96,6 +96,12 @@ object WidgetRemoteViewsRenderer {
             bindTool(context, appWidgetId, R.id.tool_history, WidgetAction.HISTORY)
             bindTool(context, appWidgetId, R.id.tool_weather, WidgetAction.WEATHER)
             bindTool(context, appWidgetId, R.id.tool_settings, WidgetAction.SETTINGS)
+            if (advance) {
+                // 每次从全新 RemoteViews 构建，恰好追加一次，不在上次命令上不断累加。
+                // 同布局 reapply 时不重新 inflate 静态按钮，也不把当前位置归零。
+                @Suppress("DEPRECATION") // 产品选择宿主相对推进；不引入应用侧轮播计时器。
+                showNext(R.id.hint_flipper)
+            }
         }
     }
 
