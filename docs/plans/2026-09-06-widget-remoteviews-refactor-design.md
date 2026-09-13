@@ -2,7 +2,7 @@
 
 ## 目标
 
-将现有搜索工具小组件整理为可迁移到正式项目的实现：桌面宿主负责每 8 秒轮播；系统重复触发 `onUpdate()` 时不打断当前进程内已有实例的轮播；点击推进全部组件实例；API 31 及以上使用系统原生 `RemoteViews.RemoteCollectionItems`，API 29～30 保留 `RemoteViewsService/RemoteViewsFactory`；小组件和 WorkManager 核心链路具备完整、可维护的中文注释。点击和路由规则已按 2026-09-11 的需求更新。
+将现有搜索工具小组件整理为可迁移到正式项目的实现：桌面宿主负责每 8 秒轮播；系统重复触发 `onUpdate()` 时不打断当前进程内已有实例的轮播；点击推进全部组件实例；API 31 及以上使用系统原生 `RemoteViews.RemoteCollectionItems`，API 29～30 保留 `RemoteViewsService/RemoteViewsFactory`；小组件和 WorkManager 核心链路具备完整、可维护的中文注释。点击和路由规则已按 2026-09-11 的需求更新，冷热启动外观按 2026-09-14 的需求更新。
 
 ## 已确认的产品语义
 
@@ -33,7 +33,8 @@
 - 集合 item 使用 PendingIntent Template + Fill-in Intent：Fill-in Intent 只提供搜索动作和当前暗词。
 - 静态工具按钮使用普通 PendingIntent：提供固定工具动作和来源 `appWidgetId`。
 - RouterActivity 在 ARouter 跳转前，对全部实例发送完整 RemoteViews，末尾附加一次 `RemoteViews.showNext()`，不带 `setDisplayedChild(0)`，不读取或维护集合 position。局部更新合并会忽略 showNext，不能使用。
-- 中转页同主进程、同任务，透明无内容且禁用预览/过渡，不自行显示 Logo。`onCreate/onNewIntent` 共用入口；等待异步 ARouter 回调后才结束，等待期间保留最新目标。详见 [修复说明](2026-09-11-widget-click-fixes.md)。
+- 中转页同主进程、同任务，不加载内容布局。2026-09-14 起，Manifest 改为允许启动预览的冷主题，通过背景 Logo 为慢初始化提供反馈；已有页面的进程在创建窗口前改用透明主题，不显示业务 Logo。`WidgetLaunchTracker` 在 Application 中记录本进程是否创建过任意 Activity，不写入 MMKV；仅后台 Worker/Provider 启动过进程但尚无页面时仍走冷外观。
+- `onCreate/onNewIntent` 共用路由入口；等待异步 ARouter 回调后才结束，等待期间保留最新目标。配置重建保持原窗口外观，不重复消费点击。仍关闭中转窗口和导航过渡动画，不人为延长 Logo 停留。路由根因见 [2026-09-11 修复说明](2026-09-11-widget-click-fixes.md)，主题规则和系统启动预览边界见 [2026-09-14 冷热启动主题说明](2026-09-14-widget-launch-theme.md)。
 
 ## `onUpdate()` 与进程会话
 
@@ -73,4 +74,5 @@
 - 同一进程内向已有实例发送系统更新广播后，当前暗词不归零。
 - 新池变化后全部实例显示新池第一条。
 - 搜索框、搜索按钮、四个工具页的 ARouter 跳转全部正确。
+- 冷启动时初始化前已有系统启动预览 Logo；当前进程已有页面时实际中转窗口透明。另行验收系统温启动和荣耀启动屏行为，不能用主题资源测试代替真机观感验收。
 - 单元测试、Lint 和 Debug 构建通过。

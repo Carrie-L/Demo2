@@ -43,7 +43,8 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
 - Provider、RemoteViewsService、Router、Worker 和页面统一运行在主进程；MMKV 使用 `SINGLE_PROCESS_MODE`。
 - API 29～30 使用 `RemoteViewsService/RemoteViewsFactory`；API 31+ 使用系统原生 `RemoteViews.RemoteCollectionItems`，未增加 AndroidX RemoteViews 依赖。
 - Flipper item 只包含暗词与搜索按钮，底部四个工具按钮固定在根布局；轮播切换动画已取消。
-- 组件点击先进入无内容、无 Logo 的 `WidgetRouterActivity`，向所有实例下发完整 RemoteViews + 一次 `showNext()`，不归零，再通过共享 `RoutePath` 和 ARouter 跳转。不能用局部更新发送 `showNext()`，系统合并时会丢弃它。
+- 组件点击先进入不加载内容布局的 `WidgetRouterActivity`：冷启动通过 theme 显示 Logo，已有页面的进程走透明中转。随后向所有实例下发完整 RemoteViews + 一次 `showNext()`，不归零，再通过共享 `RoutePath` 和 ARouter 跳转。不能用局部更新发送 `showNext()`，系统合并时会丢弃它。
+- Manifest 默认使用允许系统启动预览的冷主题，让慢 `Application` 初始化期间也有反馈；`WidgetLaunchTracker` 记录本进程是否创建过任意 Activity，在 Router 创建窗口前选择冷主题或透明主题。标记不持久化，单纯 Worker/Provider 唤起进程不算已进入过页面，配置重建保持原窗口外观。详见 [冷热启动主题说明](docs/plans/2026-09-14-widget-launch-theme.md)。
 - 中转页同任务运行，处理 `onCreate/onNewIntent`，在 ARouter 成功/失败回调后才结束；异步等待期间的新点击保留最新目标，避免旧请求随后盖回旧页。
 - 自定义 `ACTION_HINT_POOL_CHANGED` 在 Provider 的 `onReceive()` 处理；系统首次 UI 由 `onUpdate()` 设置。同一进程内重复的系统 `onUpdate()` 不重建已初始化实例，避免当前轮播归零。
 
@@ -59,7 +60,7 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
 - `app/.../searchtoolswidget/sync/*`：运行在主进程的 Worker、Scheduler 和 Receiver。
 - `widget/.../searchtoolswidget/*`：MMKV Store、Provider、RemoteViews、Router 和组件资源。
 
-详细设计见 [RemoteViews 正式化重构设计](docs/plans/2026-09-06-widget-remoteviews-refactor-design.md) 和 [点击链路修复说明](docs/plans/2026-09-11-widget-click-fixes.md)。
+详细设计见 [RemoteViews 正式化重构设计](docs/plans/2026-09-06-widget-remoteviews-refactor-design.md)、[点击链路修复说明](docs/plans/2026-09-11-widget-click-fixes.md) 和 [冷热启动主题说明](docs/plans/2026-09-14-widget-launch-theme.md)。
 
 ## 仍需荣耀真机验收
 
@@ -67,4 +68,4 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
 - API 29～30 `notifyAppWidgetViewDataChanged + setDisplayedChild(0)` 的实际执行顺序，以及 API 31+ 内联集合表现。
 - 桌面/负一屏可见性切换、熄屏恢复和 Launcher 重建后的 Flipper 行为。
 - 4×2 尺寸、无动画切换、点击 `showNext()` 与自动翻页临界时序。
-- 冷启动的系统启动屏与中转页需分别验收：本项目不绘制中转 Logo，但不承诺关闭厂商系统启动屏。正式项目若目标是 singleTop/singleTask，目标页也必须在 onNewIntent 重新处理搜索参数。
+- 冷启动的系统启动屏与中转窗口需分别验收：冷主题提供 Logo，已有页面的进程采用透明中转且不添加业务 Logo 动画。`onCreate` 中换主题无法追溯取消此前系统已绘制的启动预览，因此不能承诺所有温启动/厂商场景绝无系统启动屏。正式项目若目标是 singleTop/singleTask，目标页也必须在 onNewIntent 重新处理搜索参数。

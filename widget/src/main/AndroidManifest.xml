@@ -19,14 +19,15 @@
             android:exported="false"
             android:permission="android.permission.BIND_REMOTEVIEWS" />
 
-        <!-- 与主 App 同进程、同任务；入口无 Logo，不使用独立 affinity 造成额外任务切换。
+        <!-- 与主 App 同进程、同任务；默认冷启动 Logo，已进入过 UI 后在 onCreate 前切透明。
+             不能在 Manifest 禁止 preview，否则 Application 慢初始化期间只会一直看到桌面。
              保留至路由回调完成再 finish，不能 noHistory 在异步路由等待期间提前销毁。
              singleTop 配合 PendingIntent 的 CLEAR_TOP，让再次点击走 onNewIntent。 -->
         <activity
             android:name=".router.WidgetRouterActivity"
             android:exported="false"
             android:launchMode="singleTop"
-            android:theme="@style/Theme.Demo2.WidgetRouter" />
+            android:theme="@style/Theme.Demo2.WidgetRouter.Cold" />
     </application>
 
 </manifest>

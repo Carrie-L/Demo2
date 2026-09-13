@@ -3,6 +3,7 @@ package com.carrie.demo.searchtoolswidget.router
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -10,6 +11,7 @@ import android.util.Log
 import com.alibaba.android.arouter.facade.Postcard
 import com.alibaba.android.arouter.facade.callback.NavigationCallback
 import com.alibaba.android.arouter.launcher.ARouter
+import com.carrie.demo.searchtoolswidget.R
 import com.carrie.demo.searchtoolswidget.provider.WidgetInstanceUpdater
 import com.carrie.demo.searchtoolswidget.storage.WidgetStorageInitializer
 import java.lang.ref.WeakReference
@@ -19,17 +21,68 @@ import java.lang.ref.WeakReference
  *
  * RemoteViews 无法直接执行项目内的 ARouter 调用，因此所有按钮先进入本 Activity：
  * 先让所有组件的暗词立即前进，再解析固定 RoutePath 跳进主 App 页面。
- * 本页在主进程运行，不加载布局或 Logo；路由完成后立即关闭。
+ * 本页在主进程运行，冷路径使用 Logo 主题，已有 UI 的进程使用透明主题；不额外加载布局。
+ * Manifest 的冷主题负责 Application 运行前的系统启动预览，路由完成后立即关闭。
  */
 class WidgetRouterActivity : Activity() {
+    /** 配置重建沿用原窗口外观，不能把冷启动等待中的 Logo 突然变成透明桌面。 */
+    private var showColdLogo = false
+
+    /** API 31+ 冷路径保留系统那一份 Logo，随窗口销毁清理；不与背景 Logo 做二次切换。 */
+    private var removeColdSplash: (() -> Unit)? = null
+
     /** 第一次创建入口时读取本次点击；不能在 navigation() 返回后马上 finish。 */
     override fun onCreate(savedInstanceState: Bundle?) {
+        showColdLogo = savedInstanceState?.getBoolean(STATE_SHOW_COLD_LOGO)
+            ?: !WidgetLaunchTracker.hasCreatedActivity
+        // 必须在 super.onCreate 和 DecorView 创建之前选主题，不能只事后换 windowBackground。
+        setTheme(
+            if (showColdLogo) R.style.Theme_Demo2_WidgetRouter_Cold
+            else R.style.Theme_Demo2_WidgetRouter_Transparent,
+        )
         super.onCreate(savedInstanceState)
+        configureLaunchWindow()
         WidgetStorageInitializer.initialize(this)
         currentEntry = WeakReference(this)
         // 配置重建是在恢复同一次点击，不是用户再次点击；队列仍在主进程中等待原请求。
         // 进程死亡后队列自然为空，也不重放旧点击。onPostResume 会关闭这种空的中转页。
         if (savedInstanceState == null) handleClick(intent)
+    }
+
+    /** 保存的是本次窗口外观，不持久化“是否热启动”，也不影响旧点击不重复消费的规则。 */
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putBoolean(STATE_SHOW_COLD_LOGO, showColdLogo)
+        super.onSaveInstanceState(outState)
+    }
+
+    /** 只处理当前窗口；系统在本方法之前已经画出的启动预览无法被追溯取消。 */
+    private fun configureLaunchWindow() {
+        if (!showColdLogo && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Manifest 原本是不透明的，setTheme 只改变客户端主题；还需通知系统取消遮挡。
+            setTranslucent(true)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            splashScreen.setOnExitAnimationListener { splashView ->
+                if (!showColdLogo || isFinishing || isDestroyed) {
+                    // 热路径不保留系统启动屏，也不叠加退出动画；但不能撤回此前已显示的帧。
+                    splashView.remove()
+                } else {
+                    // 系统图标有自己的尺寸/遮罩，立刻移除会跳到背景里的 84dp Logo。
+                    // 冷路径保留当前这一份，直到原有路由结束并销毁中转页，不添加最短等待。
+                    removeColdSplash = { splashView.remove() }
+                }
+            }
+        }
+    }
+
+    /** API 29 的可见性标记必须先通过框架 resume 校验；隐藏动作在 onPostResume 成对执行。 */
+    override fun onResume() {
+        super.onResume()
+        if (!showColdLogo && Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
+            // 从后台再次恢复也要还原标记，否则 target > 22 的不可见 Activity 会被框架判为异常。
+            // 这不是显示 Logo：热路径已选透明主题，本次 UI 绘制前会在 onPostResume 隐藏。
+            setVisible(true)
+        }
     }
 
     /**
@@ -47,10 +100,17 @@ class WidgetRouterActivity : Activity() {
     override fun onPostResume() {
         super.onPostResume()
         if (!navigationQueue.isNavigating) finish()
+        if (!showColdLogo && Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
+            // API 29 没有 setTranslucent，跳过无内容窗口。不能提前到 onCreate（会被覆盖）
+            // 或 onStart/onResume（不可见 Activity 未 finish 会触发 IllegalStateException）。
+            setVisible(false)
+        }
     }
 
-    /** 配置变化时释放旧窗口引用，不取消已经收到的点击，也不把新窗口引用一起清掉。 */
+    /** 释放本窗口的启动屏和弱引用；配置变化不取消原点击，也不清掉新窗口引用。 */
     override fun onDestroy() {
+        removeColdSplash?.invoke()
+        removeColdSplash = null
         if (currentEntry?.get() === this) currentEntry = null
         super.onDestroy()
     }
@@ -75,7 +135,7 @@ class WidgetRouterActivity : Activity() {
         navigationQueue.submit(route)?.let { navigate(applicationContext, it) }
     }
 
-    /** 入口没有可见内容，也不应再播放一次退出动画，避免 Logo/底层窗口闪一下。 */
+    /** 路由完成后不再播放一次入口退出动画，冷路径也不人为延长 Logo 停留。 */
     @Suppress("DEPRECATION") // API 29 起统一关闭这次过渡；本页不引入额外兼容依赖。
     override fun finish() {
         super.finish()
@@ -85,6 +145,9 @@ class WidgetRouterActivity : Activity() {
     private companion object {
         /** 只记录路由路径，不在日志输出用户搜索词。 */
         const val LOG_TAG = "WidgetRouter"
+
+        /** 仅放入本次 Activity 的保存状态，配置恢复时不切换原有窗口外观。 */
+        const val STATE_SHOW_COLD_LOGO = "widget_router.show_cold_logo"
 
         /** 一条执行中 + 一条最新等待。进程内共享，配置重建不能新建第二条并发导航链。 */
         val navigationQueue = WidgetNavigationQueue()

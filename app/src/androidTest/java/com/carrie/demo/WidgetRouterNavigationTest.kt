@@ -173,10 +173,12 @@ class WidgetRouterNavigationTest {
         try {
             val original = awaitPage(WidgetRouterActivity::class.java) { send(WidgetAction.FAVORITES) }
             assertTrue(delayed.entered.await(5, TimeUnit.SECONDS))
+            assertTransparentRouter(original)
             val recreated = awaitPage(WidgetRouterActivity::class.java) {
                 instrumentation.runOnMainSync { original.recreate() }
             }
             assertNotSame(original, recreated)
+            assertTransparentRouter(recreated)
             instrumentation.runOnMainSync { assertFalse(recreated.isFinishing) }
             assertEquals("配置恢复不得把同一次点击再发一遍", 1, delayed.favoritesCalls.get())
             val favorites = awaitPage(FavoritesActivity::class.java) { delayed.release() }
@@ -201,6 +203,7 @@ class WidgetRouterNavigationTest {
         try {
             val router = awaitPage(WidgetRouterActivity::class.java) { send(WidgetAction.FAVORITES) }
             assertTrue("收藏路由应已进入可控制的异步拦截器", delayed.entered.await(5, TimeUnit.SECONDS))
+            assertTransparentRouter(router)
             instrumentation.runOnMainSync {
                 assertFalse("目标尚未启动时不能提前 finish 中转页", router.isFinishing)
             }
@@ -230,6 +233,22 @@ class WidgetRouterNavigationTest {
             android.os.SystemClock.sleep(20)
         }
         assertEquals("复用入口必须保存本次 Intent，不能继续使用上一个按钮", action.name, latestAction)
+    }
+
+    /** MainActivity 已经创建过，本进程后续中转（含配置重建）必须选透明 theme。 */
+    private fun assertTransparentRouter(router: WidgetRouterActivity) {
+        instrumentation.runOnMainSync {
+            val attributes = router.theme.obtainStyledAttributes(intArrayOf(
+                android.R.attr.windowIsTranslucent, android.R.attr.windowBackground,
+            ))
+            try {
+                assertTrue("已有 App 页面后不再绘制业务 Logo", attributes.getBoolean(0, false))
+                val background = attributes.getDrawable(1) as android.graphics.drawable.ColorDrawable
+                assertEquals(0, android.graphics.Color.alpha(background.color))
+            } finally {
+                attributes.recycle()
+            }
+        }
     }
 
     /** 发送项目真正生成的 PendingIntent，覆盖系统 PendingIntent 身份/extra 合并逻辑。 */

@@ -7,6 +7,7 @@ import com.carrie.demo.searchmock.data.MockSearchData
 import com.carrie.demo.searchmock.data.SearchMockGraph
 import com.carrie.demo.searchtoolswidget.sync.WidgetHintSyncScheduler
 import com.carrie.demo.searchtoolswidget.storage.WidgetStorageInitializer
+import com.carrie.demo.searchtoolswidget.router.WidgetLaunchTracker
 
 /** Demo 主进程的全局初始化入口。 */
 class DemoApplication : Application() {
@@ -16,6 +17,8 @@ class DemoApplication : Application() {
      */
     override fun onCreate() {
         super.onCreate()
+        // 观察所有入口的页面生命周期；不要在 Application 初始化结束就直接标成“热启动”。
+        WidgetLaunchTracker.install(this)
         initializeRouter()
         WidgetStorageInitializer.initialize(this)
         val dao = SearchMockGraph.hintDao(this)
