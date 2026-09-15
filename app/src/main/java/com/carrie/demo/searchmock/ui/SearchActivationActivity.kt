@@ -12,8 +12,8 @@ import com.alibaba.android.arouter.facade.annotation.Route
 import com.carrie.demo.R
 import com.carrie.demo.searchmock.data.SearchMockGraph
 import com.carrie.demo.searchmock.domain.SearchLaunchState
-import com.carrie.demo.searchtoolswidget.router.WidgetNavigationContract
-import com.carrie.demo.searchtoolswidget.router.RoutePath
+import com.carrie.demo.searchmock.navigation.SearchNavigationContract
+import com.carrie.demo.searchmock.navigation.RoutePath
 
 @Route(path = RoutePath.SEARCH_ACTIVATION)
 class SearchActivationActivity : Activity() {
@@ -38,11 +38,8 @@ class SearchActivationActivity : Activity() {
 
         searchInput = findViewById(R.id.search_input)
         val state = SearchLaunchState.resolve(
-            keyword = intent.getStringExtra(WidgetNavigationContract.EXTRA_KEYWORD),
-            freezeHintRotation = intent.getBooleanExtra(
-                WidgetNavigationContract.EXTRA_FREEZE_HINT_ROTATION,
-                false,
-            ),
+            keyword = intent.getStringExtra(SearchNavigationContract.EXTRA_KEYWORD),
+            freezeHintRotation = intent.hasExtra(SearchNavigationContract.EXTRA_KEYWORD),
         )
         searchInput.setText(state.initialKeyword)
         findViewById<TextView>(R.id.rotation_status).text = if (state.shouldRotateHints) {
@@ -54,7 +51,7 @@ class SearchActivationActivity : Activity() {
         findViewById<Button>(R.id.search_submit_button).setOnClickListener {
             startActivity(
                 Intent(this, SearchResultActivity::class.java).putExtra(
-                    WidgetNavigationContract.EXTRA_KEYWORD,
+                    SearchNavigationContract.EXTRA_KEYWORD,
                     searchInput.text.toString(),
                 ),
             )

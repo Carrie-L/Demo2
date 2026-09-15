@@ -1,4 +1,4 @@
-package com.carrie.demo.searchtoolswidget.router
+package com.carrie.demo.searchmock.navigation
 
 /** ARouter 固定路径；正式迁移时直接替换为宿主项目已有的 RoutePath 常量。 */
 object RoutePath {

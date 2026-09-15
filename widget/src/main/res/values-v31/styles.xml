@@ -1,9 +1,0 @@
-<resources>
-    <!-- Android 12+ 使用平台 SplashScreen；不新增 AndroidX splashscreen 依赖。
-         不设置 icon_preferred，避免强制所有温启动也显示图标。动画时长不是等待时长。 -->
-    <style name="Theme.Demo2.WidgetRouter.Cold" parent="Theme.Demo2.WidgetRouter.ColdBase">
-        <item name="android:windowSplashScreenBackground">@color/widget_router_starting_background</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/widget_router_logo</item>
-        <item name="android:windowSplashScreenAnimationDuration">0</item>
-    </style>
-</resources>

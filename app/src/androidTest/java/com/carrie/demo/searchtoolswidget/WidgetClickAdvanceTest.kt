@@ -3,7 +3,10 @@ package com.carrie.demo.searchtoolswidget
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
+import android.app.ActivityOptions
+import android.os.Build
 import android.content.ComponentName
+import android.content.Intent
 import android.os.SystemClock
 import android.view.View
 import android.widget.AdapterViewFlipper
@@ -12,9 +15,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.carrie.demo.searchtoolswidget.model.WidgetHintRecord
 import com.carrie.demo.searchtoolswidget.provider.SearchToolsWidgetProvider
+import com.carrie.demo.searchtoolswidget.provider.WidgetBroadcasts
 import com.carrie.demo.searchtoolswidget.provider.WidgetInstanceUpdater
 import com.carrie.demo.searchtoolswidget.provider.WidgetRemoteViewsRenderer
 import com.carrie.demo.searchtoolswidget.storage.MmkvWidgetStateStore
+import com.carrie.demo.searchtoolswidget.router.WidgetAction
+import com.carrie.demo.searchtoolswidget.router.WidgetPendingIntents
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -101,7 +107,9 @@ class WidgetClickAdvanceTest {
             originalTools = views.map { it.findViewById(R.id.tool_favorites) }
         }
         repeat(6) { click ->
-            instrumentation.runOnMainSync { WidgetInstanceUpdater.advanceAll(context) }
+            instrumentation.runOnMainSync {
+                SearchToolsWidgetProvider().onReceive(context, Intent(WidgetBroadcasts.HINT_WORD_NEXT))
+            }
             awaitIndices((click + 1) % 4, (click + 3) % 4)
             instrumentation.runOnMainSync {
                 views.forEachIndexed { index, view ->
@@ -109,6 +117,44 @@ class WidgetClickAdvanceTest {
                         originalTools[index], view.findViewById(R.id.tool_favorites))
                 }
             }
+        }
+    }
+
+    /** 覆盖 Provider 广播入口到实际宿主翻页，不仅直接调用 advanceAll 测试 helper。 */
+    @Suppress("DEPRECATION")
+    @Test
+    fun broadcastEntryAdvancesAllWidgetsExactlyOncePerDeliveredClick() {
+        instrumentation.uiAutomation.adoptShellPermissionIdentity("android.permission.START_ACTIVITIES_FROM_BACKGROUND")
+        try {
+            val cases = listOf(
+                WidgetAction.FAVORITES to "com.carrie.demo.searchmock.ui.shortcut.FavoritesActivity",
+                WidgetAction.WEATHER to "com.carrie.demo.searchmock.ui.shortcut.WeatherActivity",
+            )
+            cases.forEachIndexed { index, (action, pageClass) ->
+                val monitor = instrumentation.addMonitor(pageClass, null, false)
+                try {
+                    val options = ActivityOptions.makeBasic()
+                    if (Build.VERSION.SDK_INT >= 34) options.setPendingIntentBackgroundActivityStartMode(
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED,
+                    )
+                    WidgetPendingIntents.action(context, action)
+                        ?.send(context, 0, null, null, null, null, options.toBundle())
+                    assertNotNull(monitor.waitForActivityWithTimeout(5_000))
+                    awaitIndices(index + 1, index + 1)
+                } finally {
+                    instrumentation.removeMonitor(monitor)
+                }
+            }
+        } finally {
+            instrumentation.runOnMainSync {
+                val registry = androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
+                listOf(androidx.test.runner.lifecycle.Stage.RESUMED, androidx.test.runner.lifecycle.Stage.STARTED,
+                    androidx.test.runner.lifecycle.Stage.PAUSED, androidx.test.runner.lifecycle.Stage.STOPPED)
+                    .flatMap { registry.getActivitiesInStage(it).toList() }.distinct()
+                    .forEach { it.finish() }
+            }
+            instrumentation.waitForIdleSync()
+            instrumentation.uiAutomation.dropShellPermissionIdentity()
         }
     }
 
@@ -138,7 +184,41 @@ class WidgetClickAdvanceTest {
         assertArrayEquals(intArrayOf(1, 1), indices())
     }
 
-    /** 合并后的正式清单中，组件、服务、中转页均不得落入独立进程。 */
+    /** 升级后即使系统 UI 已初始化，也必须重绑旧界面及点击；重绑不得推进或归零。 */
+    @Test
+    fun packageReplacementRebindsWidgetsWithoutChangingProgress() {
+        manager.partiallyUpdateAppWidget(ids.toIntArray(), RemoteViews(context.packageName, R.layout.widget_search_tools).apply {
+            setOnClickPendingIntent(R.id.tool_favorites, null)
+        })
+        val deadline = SystemClock.uptimeMillis() + 4_000
+        var changed = false
+        while (!changed && SystemClock.uptimeMillis() < deadline) {
+            instrumentation.runOnMainSync {
+                changed = views.all { !it.findViewById<View>(R.id.tool_favorites).hasOnClickListeners() }
+            }
+            if (!changed) SystemClock.sleep(25)
+        }
+        assertTrue("先确认宿主显示了旧版快照，避免测试未经过重绑就通过", changed)
+        // 在 partial 准备动作结束后建立进度基线，否则它会重放 setUp 快照中的索引 0。
+        // 模拟桌面自身已经轮播到第 1 项，不在测试准备阶段引入任何 showNext 缓存。
+        instrumentation.runOnMainSync { views.indices.forEach { flipper(it).displayedChild = 1 } }
+        awaitIndices(1, 1)
+        instrumentation.runOnMainSync {
+            SearchToolsWidgetProvider().onReceive(context, Intent(Intent.ACTION_MY_PACKAGE_REPLACED))
+        }
+        val end = SystemClock.uptimeMillis() + 4_000
+        var rebound = false
+        while (!rebound && SystemClock.uptimeMillis() < end) {
+            instrumentation.runOnMainSync {
+                rebound = views.all { it.findViewById<View>(R.id.tool_favorites).hasOnClickListeners() }
+            }
+            if (!rebound) SystemClock.sleep(25)
+        }
+        assertTrue("应用升级必须重绑所有现存组件", rebound)
+        assertArrayEquals(intArrayOf(1, 1), indices())
+    }
+
+    /** 合并后的正式清单中，组件、服务、主 App 入口均不得落入独立进程。 */
     @Test
     fun widgetComponentsUseMainProcess() {
         val pm = context.packageManager
@@ -149,7 +229,7 @@ class WidgetClickAdvanceTest {
             context, "com.carrie.demo.searchtoolswidget.remote.HintRemoteViewsService",
         ), 0).processName)
         assertEquals(context.packageName, pm.getActivityInfo(ComponentName(
-            context, "com.carrie.demo.searchtoolswidget.router.WidgetRouterActivity",
+            context, "com.carrie.demo.searchmock.ui.LauncherActivity",
         ), 0).processName)
     }
 

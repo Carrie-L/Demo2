@@ -1,5 +1,7 @@
 # Search Tools Widget RemoteViews Refactor Implementation Plan
 
+> 当前点击接入以 [主 App 入口方案](2026-09-14-widget-main-entry.md) 为准，本文中转 Activity 步骤不再执行。
+
 > 历史执行记录，不再据此实现“来源实例隔离 / partial showNext”。2026-09-11 已改为全部实例
 > 完整更新 + 单次 showNext，原因与当前实现见 [点击链路修复说明](2026-09-11-widget-click-fixes.md)。
 

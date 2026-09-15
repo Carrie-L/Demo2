@@ -40,12 +40,15 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
 - 默认周期 60 分钟，Mock 云配可切换 15/60/120 分钟；低于 15 分钟会钳制为 15。
 - 周期频率未变时 `KEEP` 既有 WorkManager 计时；频率变化时 `UPDATE` 同名任务并保留已经过去的计时时间。例如 60→15 时，若旧周期已经过了 15 分钟，新任务会尽快具备执行资格，不额外创建一次性立即任务。
 - 只有“隐私已同意且至少存在一个组件实例”才读库；撤回隐私会取消任务、清池并刷新兜底。
-- Provider、RemoteViewsService、Router、Worker 和页面统一运行在主进程；MMKV 使用 `SINGLE_PROCESS_MODE`。
+- Provider、RemoteViewsService、Worker 和页面统一运行在主进程；MMKV 使用 `SINGLE_PROCESS_MODE`。
 - API 29～30 使用 `RemoteViewsService/RemoteViewsFactory`；API 31+ 使用系统原生 `RemoteViews.RemoteCollectionItems`，未增加 AndroidX RemoteViews 依赖。
 - Flipper item 只包含暗词与搜索按钮，底部四个工具按钮固定在根布局；轮播切换动画已取消。
-- 组件点击先进入不加载内容布局的 `WidgetRouterActivity`：冷启动通过 theme 显示 Logo，已有页面的进程走透明中转。随后向所有实例下发完整 RemoteViews + 一次 `showNext()`，不归零，再通过共享 `RoutePath` 和 ARouter 跳转。不能用局部更新发送 `showNext()`，系统合并时会丢弃它。
-- Manifest 默认使用允许系统启动预览的冷主题，让慢 `Application` 初始化期间也有反馈；`WidgetLaunchTracker` 记录本进程是否创建过任意 Activity，在 Router 创建窗口前选择冷主题或透明主题。标记不持久化，单纯 Worker/Provider 唤起进程不算已进入过页面，配置重建保持原窗口外观。详见 [冷热启动主题说明](docs/plans/2026-09-14-widget-launch-theme.md)。
-- 中转页同任务运行，处理 `onCreate/onNewIntent`，在 ARouter 成功/失败回调后才结束；异步等待期间的新点击保留最新目标，避免旧请求随后盖回旧页。
+- 所有点击发送 `HINT_WORD_NEXT` 给 widget 的 Provider；先保存当前 URI/keyword，再在 widget 内推进全部实例，最后打开 App。无 URI 的广播只推进。
+- 推进使用完整 RemoteViews + 一次 `showNext()`，不归零；不能用局部更新，系统合并会丢弃该动作。
+- widget 通过 PackageManager 获取本包启动组件，不引用 `LauncherActivity::class.java`。只向 App 传真实 `data URI` 和可选 extra `keyword`，工具按钮不传搜索词。
+- 主 App 的 `LauncherActivity` 只 Mock 通用 deeplink 接收及 ARouter 跳转；没有按钮 resolve、点击队列、组件推进或生命周期监听。搜索页自行处理 keyword 和冻结。
+- 启动 flags 为 `NEW_TASK | CLEAR_TOP | SINGLE_TOP`；会清除入口之上的页面，不清空整个任务。普通返回、配置恢复不重放消费过的 URI。
+- 删除中转页及专用主题；升级通过 `MY_PACKAGE_REPLACED` 重绑为新版广播点击，不读数据库、不推进、不归零。详见 [点击方案](docs/plans/2026-09-14-widget-main-entry.md)。
 - 自定义 `ACTION_HINT_POOL_CHANGED` 在 Provider 的 `onReceive()` 处理；系统首次 UI 由 `onUpdate()` 设置。同一进程内重复的系统 `onUpdate()` 不重建已初始化实例，避免当前轮播归零。
 
 ## 多实例说明
@@ -58,9 +61,10 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
 
 - `app/.../searchmock/*`：Mock 搜索数据库、隐私/云配和页面。
 - `app/.../searchtoolswidget/sync/*`：运行在主进程的 Worker、Scheduler 和 Receiver。
-- `widget/.../searchtoolswidget/*`：MMKV Store、Provider、RemoteViews、Router 和组件资源。
+- `app/.../searchmock/navigation/*`：主 App 通用 RoutePath 和 keyword 协议，不包含小组件业务。
+- `widget/.../searchtoolswidget/*`：MMKV Store、Provider、RemoteViews、真实 deeplink/PendingIntent、App 启动和组件资源；不依赖 ARouter，不包含 Activity。
 
-详细设计见 [RemoteViews 正式化重构设计](docs/plans/2026-09-06-widget-remoteviews-refactor-design.md)、[点击链路修复说明](docs/plans/2026-09-11-widget-click-fixes.md) 和 [冷热启动主题说明](docs/plans/2026-09-14-widget-launch-theme.md)。
+当前点击设计见 [主 App 入口方案](docs/plans/2026-09-14-widget-main-entry.md)，组件设计见 [RemoteViews 正式化重构设计](docs/plans/2026-09-06-widget-remoteviews-refactor-design.md)。历史中转方案已标记为被替代，不能继续按旧文档接入。
 
 ## 仍需荣耀真机验收
 
@@ -68,4 +72,11 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
 - API 29～30 `notifyAppWidgetViewDataChanged + setDisplayedChild(0)` 的实际执行顺序，以及 API 31+ 内联集合表现。
 - 桌面/负一屏可见性切换、熄屏恢复和 Launcher 重建后的 Flipper 行为。
 - 4×2 尺寸、无动画切换、点击 `showNext()` 与自动翻页临界时序。
-- 冷启动的系统启动屏与中转窗口需分别验收：冷主题提供 Logo，已有页面的进程采用透明中转且不添加业务 Logo 动画。`onCreate` 中换主题无法追溯取消此前系统已绘制的启动预览，因此不能承诺所有温启动/厂商场景绝无系统启动屏。正式项目若目标是 singleTop/singleTask，目标页也必须在 onNewIntent 重新处理搜索参数。
+- 六个入口的真实冷启动、热启动和回桌面动画未结束时的点击。系统/厂商没有交付点击时，App 无法凭空恢复新按钮，必须结合 `WidgetClick`、`AppDeepLink` 和系统启动日志定位；模拟器不能代替问题机型验收。正式项目若目标是 singleTop/singleTask，目标页也必须在 onNewIntent 重新处理搜索参数。
+
+
+## 本次推送与体验注意
+
+按用户要求，2026-09-15 的广播点击改造写完即推送，不以完整测试通过作为前置条件。新增协议回归与全实例推进测试不等于荣耀设备验收。
+
+广播启动 Activity 不使用 Android 12+ 增强的小组件过渡动画；冷启 Logo 要等 App 初始化及 Receiver 执行后、Activity 开始启动才出现。详见 [Android 官方说明](https://developer.android.com/develop/ui/views/appwidgets/enhance#enable-smoother-transitions)。

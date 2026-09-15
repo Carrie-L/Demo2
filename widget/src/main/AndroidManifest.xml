@@ -4,9 +4,11 @@
     <application>
         <receiver
             android:name=".provider.SearchToolsWidgetProvider"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <!-- 系统专用升级广播：已有组件重绑新版入口，不等待下一小时同步。 -->
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
 
             <meta-data
@@ -19,15 +21,8 @@
             android:exported="false"
             android:permission="android.permission.BIND_REMOTEVIEWS" />
 
-        <!-- 与主 App 同进程、同任务；默认冷启动 Logo，已进入过 UI 后在 onCreate 前切透明。
-             不能在 Manifest 禁止 preview，否则 Application 慢初始化期间只会一直看到桌面。
-             保留至路由回调完成再 finish，不能 noHistory 在异步路由等待期间提前销毁。
-             singleTop 配合 PendingIntent 的 CLEAR_TOP，让再次点击走 onNewIntent。 -->
-        <activity
-            android:name=".router.WidgetRouterActivity"
-            android:exported="false"
-            android:launchMode="singleTop"
-            android:theme="@style/Theme.Demo2.WidgetRouter.Cold" />
+        <!-- 系统能交付组件事件；点击凭本 App 创建的显式 PendingIntent 进入 Provider。
+             不对其他 App 开放推进广播，不声明中转 Activity。 -->
     </application>
 
 </manifest>

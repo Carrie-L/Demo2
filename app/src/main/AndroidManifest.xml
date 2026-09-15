@@ -32,7 +32,8 @@
             android:name=".searchmock.ui.SearchActivationActivity"
             android:exported="false" />
         <activity
-            android:name=".searchmock.ui.MainActivity"
+            android:name=".searchmock.ui.LauncherActivity"
+            android:launchMode="singleTop"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

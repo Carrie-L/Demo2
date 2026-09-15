@@ -1,4 +1,0 @@
-<resources>
-    <!-- 与 Demo 主 App 背景一致；迁移时和正式 App 启动主题一起替换。 -->
-    <color name="widget_router_starting_background">#FFF7F0</color>
-</resources>

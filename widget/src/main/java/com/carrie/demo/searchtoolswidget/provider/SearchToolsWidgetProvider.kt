@@ -4,6 +4,9 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import android.util.Log
+import com.carrie.demo.searchtoolswidget.router.WidgetAppLauncher
+import com.carrie.demo.searchtoolswidget.router.WidgetClickContract
 import com.carrie.demo.searchtoolswidget.storage.WidgetStorageInitializer
 import com.carrie.demo.searchtoolswidget.sync.WidgetScheduleActions
 
@@ -64,12 +67,47 @@ class SearchToolsWidgetProvider : AppWidgetProvider() {
      * 一起换到新池并从第 0 条开始，因此这里允许完整刷新全部实例。
      */
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == WidgetBroadcasts.HINT_WORD_NEXT) {
+            handleHintWordNext(context, intent)
+            return // 不再发送同名广播，不进入系统 onUpdate，不重复推进。
+        }
+        if (intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+            // 删除中转 Activity 后，旧宿主快照可能仍绑定旧 PendingIntent，必须主动换绑。
+            // 只使用 MMKV 快照，不读取数据库，不 showNext，也不 setDisplayedChild(0)。
+            // 该受保护广播只能由系统发送；重复收到只做幂等重绑。
+            WidgetStorageInitializer.initialize(context)
+            WidgetInstanceUpdater.refreshAll(context, displayedChild = null)
+            return
+        }
         if (intent.action == WidgetBroadcasts.ACTION_HINT_POOL_CHANGED) {
             WidgetStorageInitializer.initialize(context)
             WidgetInstanceUpdater.refreshAll(context, displayedChild = 0)
             return
         }
         super.onReceive(context, intent)
+    }
+
+    /**
+     * 一次点击只在这里推进一次。先保存 item 入参，刷新后仍传点击时的原词。
+     * 不查数据库、不等 Worker、不按 appWidgetId 隔离，不让主入口参与推进。
+     */
+    private fun handleHintWordNext(context: Context, intent: Intent) {
+        try {
+            val uri = intent.data
+            val keyword = intent.getStringExtra(WidgetClickContract.EXTRA_KEYWORD)
+            Log.d("WidgetClick", "收到 HINT_WORD_NEXT path=${uri?.path}")
+            try {
+                WidgetStorageInitializer.initialize(context)
+                WidgetInstanceUpdater.advanceAll(context)
+            } catch (error: Exception) {
+                // 推进失败不吞掉打开 App 的请求；不输出暗词或系统异常中的参数。
+                Log.e("WidgetClick", "推进组件失败: ${error.javaClass.simpleName}")
+            }
+            WidgetAppLauncher.open(context, uri, keyword)
+        } catch (error: Exception) {
+            // Intent 解包也可能失败；畸形输入安全结束，不用 requireNotNull/!!。
+            Log.e("WidgetClick", "读取点击入参失败: ${error.javaClass.simpleName}")
+        }
     }
 
     /** 请求调度接收器依据“隐私协议 + 是否存在实例”重新决定创建或取消任务。 */

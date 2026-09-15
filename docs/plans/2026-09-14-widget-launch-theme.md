@@ -1,5 +1,7 @@
 # 小组件冷启动 Logo / 热路径透明主题
 
+> 历史方案，已被同日后续需求替代：中转 Activity、跟踪器与专用主题均已移除。当前直接进入主 App，接入请使用 [主 App 入口方案](2026-09-14-widget-main-entry.md)。下文仅保留当时设计与验证记录，不是当前迁移步骤。
+
 **Goal:** 应用冷启动初始化期间立即提供 Logo 反馈；进程已有页面后的中转窗口透明，不额外播放 Logo 退出动画。
 
 **Architecture:** Manifest 使用允许系统启动预览的 Cold style；Activity 创建窗口前选择 Cold / Transparent style。全 App 的进程内 UI 标记用于选择实际中转主题，不写 MMKV，不把进程初始化是否结束误当成启动来源。

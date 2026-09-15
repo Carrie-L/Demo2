@@ -1,12 +1,11 @@
 package com.carrie.demo.searchtoolswidget.remote
 
 import android.content.Context
-import android.content.Intent
 import android.widget.RemoteViews
 import com.carrie.demo.searchtoolswidget.R
 import com.carrie.demo.searchtoolswidget.model.WidgetHintRecord
 import com.carrie.demo.searchtoolswidget.router.WidgetAction
-import com.carrie.demo.searchtoolswidget.router.WidgetClickContract
+import com.carrie.demo.searchtoolswidget.router.WidgetPendingIntents
 
 /**
  * 暗词集合 item 的唯一构建入口。
@@ -21,11 +20,11 @@ object WidgetHintItemRemoteViews {
             setTextViewText(R.id.widget_hint_text, record.keyword)
             setOnClickFillInIntent(
                 R.id.widget_hint_text,
-                fillInIntent(WidgetAction.SEARCH_ACTIVATE, record.keyword),
+                WidgetPendingIntents.fillIn(WidgetAction.SEARCH_ACTIVATE, record.keyword),
             )
             setOnClickFillInIntent(
                 R.id.widget_search_button,
-                fillInIntent(WidgetAction.SEARCH_SUBMIT, record.keyword),
+                WidgetPendingIntents.fillIn(WidgetAction.SEARCH_SUBMIT, record.keyword),
             )
         }
     }
@@ -38,14 +37,4 @@ object WidgetHintItemRemoteViews {
         return RemoteViews(context.packageName, R.layout.widget_hint_item)
     }
 
-    /**
-     * Fill-in Intent 只携带当前 item 独有的 action 与 keyword。
-     * appWidgetId 来自外层 PendingIntent Template，用于只推进被点击的组件实例。
-     */
-    private fun fillInIntent(action: WidgetAction, keyword: String): Intent {
-        return Intent().apply {
-            putExtra(WidgetClickContract.EXTRA_ACTION, action.name)
-            putExtra(WidgetClickContract.EXTRA_KEYWORD, keyword)
-        }
-    }
 }

@@ -1,13 +1,13 @@
 package com.carrie.demo.searchtoolswidget.provider
 
 import android.appwidget.AppWidgetManager
+import android.annotation.TargetApi
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.view.View
 import android.widget.RemoteViews
-import androidx.annotation.RequiresApi
 import com.carrie.demo.searchtoolswidget.R
 import com.carrie.demo.searchtoolswidget.model.WidgetHintRecord
 import com.carrie.demo.searchtoolswidget.remote.WidgetHintItemRemoteViews
@@ -24,7 +24,7 @@ import com.carrie.demo.searchtoolswidget.storage.MmkvWidgetStateStore
  * 不能把 showNext 单独放入局部更新：系统合并时会忽略它，详见 WidgetInstanceUpdater。
  */
 object WidgetRemoteViewsRenderer {
-    /** 为系统指定的组件实例下发同一份池数据，但保留每个实例独立的点击身份。 */
+    /** 为系统指定的实例下发池数据；点击广播不按实例隔离。 */
     fun render(
         context: Context,
         manager: AppWidgetManager,
@@ -80,7 +80,6 @@ object WidgetRemoteViewsRenderer {
                 R.id.empty_hint_text,
                 WidgetPendingIntents.action(
                     context,
-                    appWidgetId,
                     WidgetAction.SEARCH_ACTIVATE,
                 ),
             )
@@ -88,14 +87,13 @@ object WidgetRemoteViewsRenderer {
                 R.id.empty_search_button,
                 WidgetPendingIntents.action(
                     context,
-                    appWidgetId,
                     WidgetAction.SEARCH_SUBMIT,
                 ),
             )
-            bindTool(context, appWidgetId, R.id.tool_favorites, WidgetAction.FAVORITES)
-            bindTool(context, appWidgetId, R.id.tool_history, WidgetAction.HISTORY)
-            bindTool(context, appWidgetId, R.id.tool_weather, WidgetAction.WEATHER)
-            bindTool(context, appWidgetId, R.id.tool_settings, WidgetAction.SETTINGS)
+            bindTool(context, R.id.tool_favorites, WidgetAction.FAVORITES)
+            bindTool(context, R.id.tool_history, WidgetAction.HISTORY)
+            bindTool(context, R.id.tool_weather, WidgetAction.WEATHER)
+            bindTool(context, R.id.tool_settings, WidgetAction.SETTINGS)
             if (advance) {
                 // 每次从全新 RemoteViews 构建，恰好追加一次，不在上次命令上不断累加。
                 // 同布局 reapply 时不重新 inflate 静态按钮，也不把当前位置归零。
@@ -122,15 +120,15 @@ object WidgetRemoteViewsRenderer {
         }
 
         // 集合 item 不能直接持有普通 PendingIntent；它们通过 fill-in Intent 补充
-        // action/keyword，再与这个可变模板合并，最终进入 WidgetRouterActivity。
+        // 真实 URI/keyword，再与这个可变模板合并，最终交给 widget 自己的 Provider。
         setPendingIntentTemplate(
             R.id.hint_flipper,
-            WidgetPendingIntents.collectionTemplate(context, appWidgetId),
+            WidgetPendingIntents.collectionTemplate(context),
         )
     }
 
     /** API 31+：集合数据直接放入 RemoteViews，不再启动 RemoteViewsService 取数。 */
-    @RequiresApi(Build.VERSION_CODES.S)
+    @TargetApi(Build.VERSION_CODES.S) // 仅由上方 SDK >= 31 的分支调用，不额外依赖注解库。
     private fun RemoteViews.bindInlineCollection(
         context: Context,
         pool: List<WidgetHintRecord>,
@@ -166,13 +164,12 @@ object WidgetRemoteViewsRenderer {
     /** 为根布局中始终静止的单个工具按钮绑定点击入口。 */
     private fun RemoteViews.bindTool(
         context: Context,
-        appWidgetId: Int,
         viewId: Int,
         action: WidgetAction,
     ) {
         setOnClickPendingIntent(
             viewId,
-            WidgetPendingIntents.action(context, appWidgetId, action),
+            WidgetPendingIntents.action(context, action),
         )
     }
 }

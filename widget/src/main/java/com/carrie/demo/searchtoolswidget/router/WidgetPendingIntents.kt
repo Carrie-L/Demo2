@@ -1,77 +1,64 @@
 package com.carrie.demo.searchtoolswidget.router
 
 import android.app.PendingIntent
-import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
+import com.carrie.demo.searchtoolswidget.provider.SearchToolsWidgetProvider
+import com.carrie.demo.searchtoolswidget.provider.WidgetBroadcasts
 
-/** 为集合点击和静态工具按钮创建互不串参的 PendingIntent。 */
+/**
+ * 所有按钮只向 widget 自己发送 HINT_WORD_NEXT，不打开 Activity、不调用 ARouter。
+ * 同一种按钮在全部实例间共享 PendingIntent；组件 ID 不属于点击协议。
+ */
 object WidgetPendingIntents {
     /**
-     * 暗词集合共用的 PendingIntent Template。
-     *
-     * 每个 item 的 Fill-in Intent 会把 action/keyword 合并进来。模板必须使用 MUTABLE，
-     * 否则 Android 12+ 无法写入 fill-in 参数；组件 id 仅用来区分 PendingIntent 身份。
+     * 模板必须留空 data，让当前 item 填入真实 URI/keyword，不能用伪 URI 占住 data。
+     * 集合需要 MUTABLE；目标组件和广播 action 已固定，不允许 Fill-in 修改。
      */
-    fun collectionTemplate(context: Context, appWidgetId: Int): PendingIntent {
-        val intent = baseIntent(context, appWidgetId).apply {
-            // data 只用于区分不同组件实例的 PendingIntent 身份，不参与 ARouter 页面跳转。
-            data = Uri.parse("demo2://widget/collection/$appWidgetId")
-        }
-        return PendingIntent.getActivity(
-            context,
-            appWidgetId,
-            intent,
+    fun collectionTemplate(context: Context): PendingIntent? = createSafely {
+        PendingIntent.getBroadcast(
+            context, COLLECTION_REQUEST_CODE, broadcastIntent(context),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
         )
     }
 
-    /**
-     * 为兜底搜索入口或底部静态工具按钮创建不可变 PendingIntent。
-     *
-     * 普通工具按钮不需要 keyword；appWidgetId 只用于身份区分，不参与路由或推进范围。
-     * 每次有效点击统一推进所有实例。
-     */
-    fun action(
-        context: Context,
-        appWidgetId: Int,
-        action: WidgetAction,
-        keyword: String? = null,
-    ): PendingIntent {
-        val intent = baseIntent(context, appWidgetId).apply {
-            putExtra(WidgetClickContract.EXTRA_ACTION, action.name)
-            if (keyword != null) {
-                putExtra(WidgetClickContract.EXTRA_KEYWORD, keyword)
+    /** 静态按钮使用不可变广播；工具按钮即使误传 keyword 也会丢弃它。 */
+    fun action(context: Context, action: WidgetAction, keyword: String? = null): PendingIntent? =
+        createSafely {
+            val intent = broadcastIntent(context).apply {
+                data = Uri.parse(action.deepLink)
+                if (action.acceptsKeyword && keyword != null) {
+                    putExtra(WidgetClickContract.EXTRA_KEYWORD, keyword)
+                }
             }
-            // action 也进入 URI，避免同一实例的多个按钮被系统判定为同一个 PendingIntent。
-            data = Uri.parse("demo2://widget/action/$appWidgetId/${action.name}")
-        }
-        return PendingIntent.getActivity(
-            context,
-            appWidgetId * 10 + action.ordinal,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-    }
-
-    /**
-     * 所有点击先进入无 Logo 的路由 Activity，再通过 ARouter 跳到主 App 页面。
-     *
-     * NEW_TASK 从桌面进入主 App 的任务；CLEAR_TOP 把未完成的路由入口带回顶部，
-     * 配合入口 singleTop 触发 onNewIntent，确保快速再次点击传来的新按钮/新词得到处理。
-     * NO_ANIMATION 只禁用这次中转过渡，不影响应用内其他页面的正常动画。
-     */
-    private fun baseIntent(context: Context, appWidgetId: Int): Intent {
-        return Intent(context, WidgetRouterActivity::class.java).apply {
-            // UPDATE_CURRENT 只替换 extras，不能靠它更新旧 token 里的 Activity flags。
-            // 用明确的入口 action 与旧版 action=null 区分；无需每次取消仍在桌面使用的 token。
-            action = WidgetClickContract.ACTION_OPEN_WIDGET_ROUTE
-            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-            addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_NO_ANIMATION,
+            PendingIntent.getBroadcast(
+                context, action.ordinal + 1, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
         }
+
+    /** 当前 item 携带点击时的词，不在点击后从池中猜当前位置。 */
+    fun fillIn(action: WidgetAction, keyword: String): Intent = Intent().apply {
+        data = Uri.parse(action.deepLink)
+        if (action.acceptsKeyword) putExtra(WidgetClickContract.EXTRA_KEYWORD, keyword)
     }
+
+    /** 显式广播只交给本模块 Provider，与系统 onUpdate 分支分开。 */
+    private fun broadcastIntent(context: Context): Intent =
+        Intent(context, SearchToolsWidgetProvider::class.java).setAction(WidgetBroadcasts.HINT_WORD_NEXT)
+
+    /** 系统拒绝创建凭据时不拖垮组件渲染；null 表示暂不绑定这个点击。 */
+    private inline fun createSafely(create: () -> PendingIntent): PendingIntent? = try {
+        create()
+    } catch (error: Exception) {
+        Log.e(LOG_TAG, "创建点击广播失败: ${error.javaClass.simpleName}")
+        null
+    }
+
+    /** 集合和静态按钮使用不同 requestCode，不按实例分配。 */
+    private const val COLLECTION_REQUEST_CODE = 0
+    /** 不在日志中打印 keyword。 */
+    private const val LOG_TAG = "WidgetClick"
 }

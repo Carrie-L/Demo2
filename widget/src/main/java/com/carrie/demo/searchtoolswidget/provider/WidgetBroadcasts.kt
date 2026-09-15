@@ -5,6 +5,9 @@ import android.content.Intent
 
 /** widget 模块内部用于通知“MMKV 暗词池已真正变化”的广播协议。 */
 object WidgetBroadcasts {
+    /** 所有按钮共用的点击/推进广播；无 data 时仅推进。 */
+    const val HINT_WORD_NEXT = "HINT_WORD_NEXT"
+
     /** Provider 收到后会刷新所有实例并让它们从新池第 0 条开始。 */
     const val ACTION_HINT_POOL_CHANGED = "com.carrie.demo.action.HINT_POOL_CHANGED"
 

@@ -1,5 +1,7 @@
 # 搜索工具桌面与负一屏小组件技术设计
 
+> 当前点击接入以 [主 App 入口方案](2026-09-14-widget-main-entry.md) 为准：已删除中转 Activity，ARouter 移入 app 模块。
+
 > 历史文档：完整 item、按 position 定位及旧中转页配置不再采用。点击范围于 2026-09-11
 > 重新确认为全部实例各自 showNext。当前以 [RemoteViews 正式化重构设计](2026-09-06-widget-remoteviews-refactor-design.md)
 > 和 [点击链路修复说明](2026-09-11-widget-click-fixes.md) 为准。
