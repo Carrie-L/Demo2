@@ -20,7 +20,8 @@ import com.carrie.demo.searchmock.ui.shortcut.SettingsActivity
 import com.carrie.demo.searchtoolswidget.provider.SearchToolsWidgetProvider
 import com.carrie.demo.searchtoolswidget.provider.WidgetBroadcasts
 import com.carrie.demo.searchtoolswidget.router.WidgetAction
-import com.carrie.demo.searchtoolswidget.router.WidgetAppLauncher
+import com.carrie.demo.searchtoolswidget.router.WidgetTaskLauncher
+import com.carrie.demo.searchtoolswidget.router.WidgetDirectEntryIntents
 import com.carrie.demo.searchtoolswidget.router.WidgetPendingIntents
 import org.junit.After
 import org.junit.Assert.*
@@ -56,7 +57,7 @@ class WidgetBroadcastNavigationTest {
         instrumentation.uiAutomation.dropShellPermissionIdentity()
     }
 
-    /** 改回 getActivity 会失败，防止又把推进移到主入口。 */
+    /** 默认 A 是广播；B 的静态凭据另行检查，避免两个方案接反。 */
     @Test
     fun buttonsSendBroadcastInsteadOfOpeningActivity() {
         assumeTrue(Build.VERSION.SDK_INT >= 31) // PendingIntent.isBroadcast 在 API 31 才公开。
@@ -79,17 +80,18 @@ class WidgetBroadcastNavigationTest {
         assertEquals("demo2://app/search/activation", launch.dataString)
         assertEquals("点击时的词", launch.getStringExtra("keyword"))
         assertEquals(setOf("keyword"), launch.extras?.keySet())
-        assertEquals(Intent.ACTION_VIEW, launch.action)
-        assertEquals("com.carrie.demo.searchmock.ui.LauncherActivity", launch.component?.className)
+        assertNull(launch.action)
+        assertNull("只能按真实 dp 匹配，不能强行指定 MAIN 入口", launch.component)
+        assertEquals(context.packageName, launch.`package`)
         assertTrue(launch.categories.isNullOrEmpty())
-        assertEquals(0x34000000, launch.flags) // NEW_TASK | CLEAR_TOP | SINGLE_TOP
+        assertEquals(Intent.FLAG_ACTIVITY_NEW_TASK, launch.flags) // 本用例无活动任务，拦截冷入口。
     }
 
     @Test
     fun toolRoutesDiscardKeywordAndEachRequestKeepsItsOwnUri() {
         val capture = LaunchCapture(context)
         listOf("favorites", "weather", "history", "settings").forEach { page ->
-            WidgetAppLauncher.open(capture, Uri.parse("demo2://app/tools/$page"), "不应传给工具")
+            WidgetTaskLauncher.open(capture, Uri.parse("demo2://app/tools/$page"), "不应传给工具")
         }
         assertEquals(listOf(
             "demo2://app/tools/favorites", "demo2://app/tools/weather",
@@ -108,19 +110,81 @@ class WidgetBroadcastNavigationTest {
     @Test
     fun unknownUriDoesNotTurnProviderIntoAnArbitraryLauncher() {
         val capture = LaunchCapture(context)
-        WidgetAppLauncher.open(capture, Uri.parse("https://example.com/"), null)
-        WidgetAppLauncher.open(capture, Uri.parse("demo2://app/unknown/page"), null)
+        WidgetTaskLauncher.open(capture, Uri.parse("https://example.com/"), null)
+        WidgetTaskLauncher.open(capture, Uri.parse("demo2://app/unknown/page"), null)
         assertTrue(capture.launches.isEmpty())
     }
 
     @Test
-    fun activityStartExceptionIsContained() {
+    fun taskQueryExceptionIsContained() {
         val rejected = object : ContextWrapper(context) {
-            override fun startActivity(intent: Intent) {
+            override fun getSystemService(name: String): Any? {
                 throw SecurityException("test rejection")
             }
         }
-        WidgetAppLauncher.open(rejected, Uri.parse("demo2://app/tools/favorites"), null)
+        WidgetTaskLauncher.open(rejected, Uri.parse("demo2://app/tools/favorites"), null)
+    }
+
+    /** A -> B -> A，直接验证重复首个入口仍创建落地页，且没有每次新建 App 任务。 */
+    @Test
+    fun appTaskRepeatedClicksStayInTheExistingTask() {
+        var firstTaskId: Int? = null
+        listOf(
+            WidgetAction.FAVORITES to FavoritesActivity::class.java,
+            WidgetAction.WEATHER to WeatherActivity::class.java,
+            WidgetAction.FAVORITES to FavoritesActivity::class.java,
+            WidgetAction.HISTORY to HistoryActivity::class.java,
+            WidgetAction.FAVORITES to FavoritesActivity::class.java,
+        ).forEach { (action, destination) ->
+            val page = awaitPage(destination) {
+                WidgetPendingIntents.action(context, action)
+                    ?.send(context, 0, null, null, null, null, senderOptions())
+            }
+            if (firstTaskId == null) firstTaskId = page.taskId
+            assertEquals("AppTask 方案不能每次新建任务", firstTaskId, page.taskId)
+        }
+    }
+
+    /** 不切换生产常量，直接调用方案 B 的真实凭据工厂，覆盖所有静态按钮。 */
+    @Test
+    fun directActivityButtonsNavigateToTheirOwnPages() {
+        val cases = listOf(
+            WidgetAction.FAVORITES to FavoritesActivity::class.java,
+            WidgetAction.HISTORY to HistoryActivity::class.java,
+            WidgetAction.WEATHER to WeatherActivity::class.java,
+            WidgetAction.SETTINGS to SettingsActivity::class.java,
+            WidgetAction.SEARCH_ACTIVATE to SearchActivationActivity::class.java,
+            WidgetAction.SEARCH_SUBMIT to SearchResultActivity::class.java,
+        )
+        cases.forEach { (action, destination) ->
+            val page = awaitPage(destination) {
+                val click = WidgetDirectEntryIntents.action(context, action, "直接入口暗词")
+                assertNotNull(click)
+                assertTrue(click?.isActivity == true)
+                click?.send(context, 0, null, null, null, null, senderOptions())
+            }
+            if (action.acceptsKeyword) assertEquals("直接入口暗词", page.intent.getStringExtra("keyword"))
+            else assertNull(page.intent.getStringExtra("keyword"))
+            assertFalse(page.intent.hasExtra(WidgetDirectEntryIntents.EXTRA_FROM_WIDGET))
+        }
+    }
+
+    /** 方案 B 的模板也是 data=null，连续 fill-in 必须分别到激活页和结果页。 */
+    @Test
+    fun directActivityTemplateUsesEachItemsUriAndKeyword() {
+        val template = WidgetDirectEntryIntents.collectionTemplate(context)
+        assertNotNull(template)
+        listOf(
+            Triple(WidgetAction.SEARCH_ACTIVATE, SearchActivationActivity::class.java, "直接第一词"),
+            Triple(WidgetAction.SEARCH_SUBMIT, SearchResultActivity::class.java, "直接第二词"),
+            Triple(WidgetAction.SEARCH_ACTIVATE, SearchActivationActivity::class.java, "直接第三词"),
+        ).forEach { (action, destination, word) ->
+            val page = awaitPage(destination) {
+                template?.send(context, 0, WidgetPendingIntents.fillIn(action, word),
+                    null, null, null, senderOptions())
+            }
+            assertEquals(word, page.intent.getStringExtra("keyword"))
+        }
     }
 
     /** 六个入口经过真实 PendingIntent、Provider、Launcher 和 ARouter，而非直接调用目标页。 */

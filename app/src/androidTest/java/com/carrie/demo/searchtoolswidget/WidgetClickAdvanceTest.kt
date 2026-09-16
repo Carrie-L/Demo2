@@ -21,6 +21,7 @@ import com.carrie.demo.searchtoolswidget.provider.WidgetRemoteViewsRenderer
 import com.carrie.demo.searchtoolswidget.storage.MmkvWidgetStateStore
 import com.carrie.demo.searchtoolswidget.router.WidgetAction
 import com.carrie.demo.searchtoolswidget.router.WidgetPendingIntents
+import com.carrie.demo.searchtoolswidget.router.WidgetDirectEntryIntents
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -146,6 +147,49 @@ class WidgetClickAdvanceTest {
                 }
             }
         } finally {
+            instrumentation.runOnMainSync {
+                val registry = androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
+                listOf(androidx.test.runner.lifecycle.Stage.RESUMED, androidx.test.runner.lifecycle.Stage.STARTED,
+                    androidx.test.runner.lifecycle.Stage.PAUSED, androidx.test.runner.lifecycle.Stage.STOPPED)
+                    .flatMap { registry.getActivitiesInStage(it).toList() }.distinct()
+                    .forEach { it.finish() }
+            }
+            instrumentation.waitForIdleSync()
+            instrumentation.uiAutomation.dropShellPermissionIdentity()
+        }
+    }
+
+    /** B 经过 Launcher 的来源判断和真实 next 广播，两实例都只推进一次；重建不重发。 */
+    @Suppress("DEPRECATION")
+    @Test
+    fun directEntryAdvancesExactlyOnceAndRecreationDoesNotRepeatIt() {
+        instrumentation.uiAutomation.adoptShellPermissionIdentity("android.permission.START_ACTIVITIES_FROM_BACKGROUND")
+        val monitor = instrumentation.addMonitor(
+            "com.carrie.demo.searchmock.ui.shortcut.FavoritesActivity", null, false,
+        )
+        try {
+            val options = ActivityOptions.makeBasic().apply {
+                if (Build.VERSION.SDK_INT >= 34) setPendingIntentBackgroundActivityStartMode(
+                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED,
+                )
+            }
+            WidgetDirectEntryIntents.action(context, WidgetAction.FAVORITES)
+                ?.send(context, 0, null, null, null, null, options.toBundle())
+            assertNotNull(monitor.waitForActivityWithTimeout(5_000))
+            awaitIndices(1, 1)
+            // 重新创建已消费点击的 Launcher，确保来源标记/保存状态不再次触发广播。
+            instrumentation.runOnMainSync {
+                val registry = androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
+                listOf(androidx.test.runner.lifecycle.Stage.STOPPED, androidx.test.runner.lifecycle.Stage.PAUSED)
+                    .flatMap { registry.getActivitiesInStage(it).toList() }
+                    .filterIsInstance<com.carrie.demo.searchmock.ui.LauncherActivity>()
+                    .forEach { it.recreate() }
+            }
+            instrumentation.waitForIdleSync()
+            SystemClock.sleep(300)
+            assertArrayEquals(intArrayOf(1, 1), indices())
+        } finally {
+            instrumentation.removeMonitor(monitor)
             instrumentation.runOnMainSync {
                 val registry = androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
                 listOf(androidx.test.runner.lifecycle.Stage.RESUMED, androidx.test.runner.lifecycle.Stage.STARTED,
