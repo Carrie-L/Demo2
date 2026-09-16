@@ -9,24 +9,36 @@ import com.carrie.demo.searchtoolswidget.provider.SearchToolsWidgetProvider
 import com.carrie.demo.searchtoolswidget.provider.WidgetBroadcasts
 
 /**
- * 所有按钮只向 widget 自己发送 HINT_WORD_NEXT，不打开 Activity、不调用 ARouter。
+ * 默认方案 A：按钮向 Provider 发送 HINT_WORD_NEXT，由 WidgetTaskLauncher 启动 App。
+ * 方案 B：USE_DIRECT_ENTRY=true 时直接打开入口，由入口发送纯推进广播。
  * 同一种按钮在全部实例间共享 PendingIntent；组件 ID 不属于点击协议。
  */
 object WidgetPendingIntents {
     /**
-     * 模板必须留空 data，让当前 item 填入真实 URI/keyword，不能用伪 URI 占住 data。
-     * 集合需要 MUTABLE；目标组件和广播 action 已固定，不允许 Fill-in 修改。
+     * false = Receiver + AppTask；true = Activity PendingIntent + Launcher 发 next。
+     * 修改后要重新下发 RemoteViews：覆盖安装会由 MY_PACKAGE_REPLACED 重绑，也可重新添加组件。
+     * 不要同时手动启用两条点击链，否则一次点击会推进两次。
      */
-    fun collectionTemplate(context: Context): PendingIntent? = createSafely {
+    const val USE_DIRECT_ENTRY = false
+
+    /**
+     * 模板必须留空 data，让当前 item 填入真实 URI/keyword，不能用伪 URI 占住 data。
+     * 集合需要 MUTABLE；方案 A 固定 Provider/action，方案 B 固定包名并在新类中构建模板。
+     */
+    fun collectionTemplate(context: Context): PendingIntent? = if (USE_DIRECT_ENTRY) {
+        WidgetDirectEntryIntents.collectionTemplate(context)
+    } else createSafely {
         PendingIntent.getBroadcast(
             context, COLLECTION_REQUEST_CODE, broadcastIntent(context),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
         )
     }
 
-    /** 静态按钮使用不可变广播；工具按钮即使误传 keyword 也会丢弃它。 */
+    /** 两种方案都只给搜索入口传 keyword，静态按钮都使用不可变 PendingIntent。 */
     fun action(context: Context, action: WidgetAction, keyword: String? = null): PendingIntent? =
-        createSafely {
+        if (USE_DIRECT_ENTRY) {
+            WidgetDirectEntryIntents.action(context, action, keyword)
+        } else createSafely {
             val intent = broadcastIntent(context).apply {
                 data = Uri.parse(action.deepLink)
                 if (action.acceptsKeyword && keyword != null) {

@@ -21,12 +21,16 @@ import com.carrie.demo.searchmock.data.SearchMockGraph
 import com.carrie.demo.searchtoolswidget.sync.WidgetScheduleActions
 import com.carrie.demo.searchmock.navigation.RoutePath
 import com.carrie.demo.searchmock.navigation.SearchNavigationContract
+import com.carrie.demo.searchtoolswidget.provider.WidgetBroadcasts
+import com.carrie.demo.searchtoolswidget.provider.WidgetComponentNames
+import com.carrie.demo.searchtoolswidget.router.WidgetDirectEntryIntents
 
 /**
  * Demo 控制台：模拟隐私、云配和搜索模块落库。
  * 这些按钮是验收工具，不属于正式小组件 UI。
  * 同时 Mock 主 App 已有的通用 deeplink 入口：只把 URI/keyword 交给 ARouter。
- * 不判断组件按钮、不推进组件、不维护点击队列，正式项目沿用自己的 LauncherActivity。
+ * 不判断组件按钮、不直接推进组件、不维护点击队列。
+ * 仅方案 B 增加“来自 widget 就发 next”通知，正式项目沿用自己的 LauncherActivity。
  */
 @Route(path = RoutePath.MAIN)
 class LauncherActivity : Activity() {
@@ -121,17 +125,29 @@ class LauncherActivity : Activity() {
 
     /** 普通图标启动没有 URI，不路由；只有通用协议检查，没有按钮到页面的 resolve。 */
     private fun consumeDeepLink() {
-        if (intent.action != Intent.ACTION_VIEW) return
         try {
             val uri = intent.data ?: return
             val keyword = intent.getStringExtra(SearchNavigationContract.EXTRA_KEYWORD)
+            val fromWidget = intent.getBooleanExtra(WidgetDirectEntryIntents.EXTRA_FROM_WIDGET, false)
             deepLinkConsumed = true
             clearDeepLinkParameters()
             if (uri.scheme != "demo2" || uri.host != "app" || uri.path.isNullOrBlank()) {
                 Log.w(LOG_TAG, "忽略非法 deeplink")
                 return
             }
-            // 原样交给主 App 路由，不识别 widget、不推导目标、不处理搜索冻结语义。
+            // 方案 B 只增加这一个来源判断。方案 A 没带标记，已经在 Provider 推进过，不再发。
+            // 广播故意不带 URI/keyword，Provider 只推进，不能再次打开 App 形成循环。
+            if (fromWidget) {
+                try {
+                    sendBroadcast(Intent(WidgetBroadcasts.HINT_WORD_NEXT).setClassName(
+                        packageName, WidgetComponentNames.PROVIDER_CLASS,
+                    ))
+                } catch (error: Exception) {
+                    Log.w(LOG_TAG, "发送 next 失败: ${error.javaClass.simpleName}")
+                }
+            }
+            // uri-only 和 ACTION_VIEW 都按 data 路由，不把 action 当作业务页面选择器。
+            // 原样交给主 App 路由，不推导组件目标、不处理搜索冻结语义。
             // 不跳过宿主拦截器；搜索模块只会收到可选 keyword，不收到按钮类型。
             ARouter.getInstance().build(uri)
                 .apply {
@@ -154,12 +170,12 @@ class LauncherActivity : Activity() {
         }
     }
 
-    /** 消费后清除 URI/keyword，普通返回或配置重建不再重放旧页面。 */
+    /** 消费后清除 URI/keyword/来源标记，普通返回或配置重建不再导航或重复发 next。 */
     private fun clearDeepLinkParameters() {
         try {
-            if (intent.action != Intent.ACTION_VIEW) return
             setIntent(Intent(intent).apply {
                 removeExtra(SearchNavigationContract.EXTRA_KEYWORD)
+                removeExtra(WidgetDirectEntryIntents.EXTRA_FROM_WIDGET)
                 data = null
             })
         } catch (error: Exception) {

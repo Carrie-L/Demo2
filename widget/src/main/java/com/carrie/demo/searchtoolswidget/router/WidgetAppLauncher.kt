@@ -5,7 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.util.Log
 
-/** Provider 推进后打开宿主 App。仅使用 Android Intent，不依赖 app 模块或 ARouter。 */
+/** 历史 component 启动写法，仅保留对照；Provider 已改用 WidgetTaskLauncher，不再调用本类。 */
 object WidgetAppLauncher {
     /**
      * 只取本包启动入口的 component，不沿用查询结果中的 MAIN、Launcher 类别及旧 flags。

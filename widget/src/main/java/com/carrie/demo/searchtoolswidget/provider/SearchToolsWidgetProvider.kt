@@ -5,7 +5,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.carrie.demo.searchtoolswidget.router.WidgetAppLauncher
+import com.carrie.demo.searchtoolswidget.router.WidgetTaskLauncher
 import com.carrie.demo.searchtoolswidget.router.WidgetClickContract
 import com.carrie.demo.searchtoolswidget.storage.WidgetStorageInitializer
 import com.carrie.demo.searchtoolswidget.sync.WidgetScheduleActions
@@ -89,7 +89,7 @@ class SearchToolsWidgetProvider : AppWidgetProvider() {
 
     /**
      * 一次点击只在这里推进一次。先保存 item 入参，刷新后仍传点击时的原词。
-     * 不查数据库、不等 Worker、不按 appWidgetId 隔离，不让主入口参与推进。
+     * 不查数据库、不等 Worker、不按 appWidgetId 隔离。方案 B 的主入口只发通知，推进仍在这里。
      */
     private fun handleHintWordNext(context: Context, intent: Intent) {
         try {
@@ -103,7 +103,8 @@ class SearchToolsWidgetProvider : AppWidgetProvider() {
                 // 推进失败不吞掉打开 App 的请求；不输出暗词或系统异常中的参数。
                 Log.e("WidgetClick", "推进组件失败: ${error.javaClass.simpleName}")
             }
-            WidgetAppLauncher.open(context, uri, keyword)
+            // 方案 A 有 URI，指定 AppTask 启动；方案 B 的 next 无 URI，到这里直接返回不再导航。
+            WidgetTaskLauncher.open(context, uri, keyword)
         } catch (error: Exception) {
             // Intent 解包也可能失败；畸形输入安全结束，不用 requireNotNull/!!。
             Log.e("WidgetClick", "读取点击入参失败: ${error.javaClass.simpleName}")

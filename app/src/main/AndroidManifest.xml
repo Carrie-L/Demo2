@@ -39,6 +39,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Mock 真正的 dp 入口，不再靠 widget 指定 Launcher 的 component。
+                 MAIN/LAUNCHER 与 deeplink 分开声明，避免混淆图标入口与路由入口。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="demo2" android:host="app" />
+            </intent-filter>
         </activity>
 
     </application>
