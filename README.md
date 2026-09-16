@@ -21,7 +21,7 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
 
 ## 两种无中转点击写法（当前代码）
 
-本次只提供实现供阅读，**没有执行构建、测试或设备验证**。不查找 MAIN 入口、不指定 Activity component，统一使用真实 URI + 本 App 包名。旧 `WidgetAppLauncher` 仅留作对照，不再被 Provider 调用。
+两种实现均不查找 MAIN 入口、不指定 Activity component，统一使用真实 URI + 本 App 包名。旧 `WidgetAppLauncher` 仅留作对照，不再被 Provider 调用。2026-09-16 已完成首轮构建、27 项单元测试和 lint（0 错误）；设备回归仍在进行，不能替代荣耀真机验收。
 
 - **方案 A，默认：** `WidgetTaskLauncher.kt`。Provider 先推进，已有普通主任务时调用 `AppTask.startActivity()`，不加 `NEW_TASK`；没有可用主任务时才用普通 `startActivity() + NEW_TASK`。入口需为 `standard/singleTop`，本例按 application 默认 affinity 筛选主任务；多主任务、自定义入口 affinity 的正式项目需调整该类的任务选择条件。
 - **方案 B：** `WidgetDirectEntryIntents.kt`。桌面直接发送 Activity PendingIntent，携带 `from_search_tools_widget=true`；Launcher 只判断该标记，发一条不带 URI 的 `HINT_WORD_NEXT`，Provider 只推进不再导航。它是直接启动的对照实现，不宣称解决方案 A 针对的任务恢复问题。
@@ -57,7 +57,7 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
 - 推进使用完整 RemoteViews + 一次 `showNext()`，不归零；不能用局部更新，系统合并会丢弃该动作。
 - widget 不查找或指定入口组件，不引用 `LauncherActivity::class.java`；传真实 `data URI` 和可选 `keyword`，仅方案 B 额外传来源 boolean，工具按钮不传搜索词。
 - 主 App 的 `LauncherActivity` Mock 通用 deeplink 接收及 ARouter 跳转；方案 B 只额外发送 next 广播，没有按钮 resolve、点击队列、直接调用组件推进或生命周期监听。搜索页自行处理 keyword 和冻结。
-- A 的指定任务启动不带任务 flags，无任务才带 `NEW_TASK`；B 的 Activity PendingIntent 带 `NEW_TASK`。不使用 `CLEAR_TOP`，普通返回、配置恢复不重放 URI 或 next。
+- A 的指定任务启动不带任务 flags，无任务才带 `NEW_TASK`；B 的 Activity PendingIntent 带 `NEW_TASK | REORDER_TO_FRONT`，将已有入口移到前台并交付新 Intent，入口需在 `onNewIntent` 处理新 URI。API 35 回归曾复现 B 只用 `NEW_TASK` 时第三次点击首个 URI 返回 result=3 却不通知入口，此修正待复测。不使用 `CLEAR_TOP`，普通返回、配置恢复不重放 URI 或 next；正式项目入口 launchMode/任务配置仍需验收。
 - 删除中转页及专用主题；升级通过 `MY_PACKAGE_REPLACED` 重绑为新版广播点击，不读数据库、不推进、不归零。详见 [点击方案](docs/plans/2026-09-14-widget-main-entry.md)。
 - 自定义 `ACTION_HINT_POOL_CHANGED` 在 Provider 的 `onReceive()` 处理；系统首次 UI 由 `onUpdate()` 设置。同一进程内重复的系统 `onUpdate()` 不重建已初始化实例，避免当前轮播归零。
 

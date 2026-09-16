@@ -26,8 +26,10 @@ object WidgetDirectEntryIntents {
         val intent = Intent().apply {
             setPackage(context.packageName)
             putExtra(EXTRA_FROM_WIDGET, true)
-            // PendingIntent 直接启动 Activity 没有 Activity 调用方，与 AppTask 方案不同。
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            // NEW_TASK 找任务，REORDER_TO_FRONT 把已有入口移到前台并交付新 Intent。
+            // 只用 NEW_TASK 时，重复首个 URI 可能仅恢复旧任务而不通知入口。
+            // 不清除业务页面；入口必须在 onNewIntent 中再次消费 URI。
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         }
         PendingIntent.getActivity(
             context, 0, intent,
@@ -48,7 +50,8 @@ object WidgetDirectEntryIntents {
                 putExtra(WidgetClickContract.EXTRA_KEYWORD, keyword)
             }
             // 保持 uri-only 协议。正式入口若要求 action/category，模板也要同步填写。
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            // 和集合模板保持一致，避免重复首个 URI 时只恢复旧页面。
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         }
         PendingIntent.getActivity(
             context, action.ordinal + 1, intent,
