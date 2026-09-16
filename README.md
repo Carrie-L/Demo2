@@ -21,7 +21,7 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
 
 ## 两种无中转点击写法（当前代码）
 
-两种实现均不查找 MAIN 入口、不指定 Activity component，统一使用真实 URI + 本 App 包名。旧 `WidgetAppLauncher` 仅留作对照，不再被 Provider 调用。2026-09-16 已完成首轮构建、27 项单元测试和 lint（0 错误）；设备回归仍在进行，不能替代荣耀真机验收。
+两种实现均不查找 MAIN 入口、不指定 Activity component，统一使用真实 URI + 本 App 包名。旧 `WidgetAppLauncher` 仅留作对照，不再被 Provider 调用。2026-09-16 已完成构建、27 项单元测试、19 项 API 35 设备测试和 lint（0 错误、8 项警告）；不能替代荣耀真机验收。
 
 - **方案 A，默认：** `WidgetTaskLauncher.kt`。Provider 先推进，已有普通主任务时调用 `AppTask.startActivity()`，不加 `NEW_TASK`；没有可用主任务时才用普通 `startActivity() + NEW_TASK`。入口需为 `standard/singleTop`，本例按 application 默认 affinity 筛选主任务；多主任务、自定义入口 affinity 的正式项目需调整该类的任务选择条件。
 - **方案 B：** `WidgetDirectEntryIntents.kt`。桌面直接发送 Activity PendingIntent，携带 `from_search_tools_widget=true`；Launcher 只判断该标记，发一条不带 URI 的 `HINT_WORD_NEXT`，Provider 只推进不再导航。它是直接启动的对照实现，不宣称解决方案 A 针对的任务恢复问题。
@@ -57,7 +57,7 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
 - 推进使用完整 RemoteViews + 一次 `showNext()`，不归零；不能用局部更新，系统合并会丢弃该动作。
 - widget 不查找或指定入口组件，不引用 `LauncherActivity::class.java`；传真实 `data URI` 和可选 `keyword`，仅方案 B 额外传来源 boolean，工具按钮不传搜索词。
 - 主 App 的 `LauncherActivity` Mock 通用 deeplink 接收及 ARouter 跳转；方案 B 只额外发送 next 广播，没有按钮 resolve、点击队列、直接调用组件推进或生命周期监听。搜索页自行处理 keyword 和冻结。
-- A 的指定任务启动不带任务 flags，无任务才带 `NEW_TASK`；B 的 Activity PendingIntent 带 `NEW_TASK | REORDER_TO_FRONT`，将已有入口移到前台并交付新 Intent，入口需在 `onNewIntent` 处理新 URI。API 35 回归曾复现 B 只用 `NEW_TASK` 时第三次点击首个 URI 返回 result=3 却不通知入口，此修正待复测。不使用 `CLEAR_TOP`，普通返回、配置恢复不重放 URI 或 next；正式项目入口 launchMode/任务配置仍需验收。
+- A 的指定任务启动不带任务 flags，无任务才带 `NEW_TASK`；B 的 Activity PendingIntent 带 `NEW_TASK | REORDER_TO_FRONT`，将已有入口移到前台并交付新 Intent，入口需在 `onNewIntent` 处理新 URI。API 35 回归曾复现 B 只用 `NEW_TASK` 时第三次点击首个 URI 返回 result=3 却不通知入口，修正后该回归已通过。不使用 `CLEAR_TOP`，普通返回、配置恢复不重放 URI 或 next；正式项目入口 launchMode/任务配置仍需验收。
 - 删除中转页及专用主题；升级通过 `MY_PACKAGE_REPLACED` 重绑为新版广播点击，不读数据库、不推进、不归零。详见 [点击方案](docs/plans/2026-09-14-widget-main-entry.md)。
 - 自定义 `ACTION_HINT_POOL_CHANGED` 在 Provider 的 `onReceive()` 处理；系统首次 UI 由 `onUpdate()` 设置。同一进程内重复的系统 `onUpdate()` 不重建已初始化实例，避免当前轮播归零。
 
@@ -77,6 +77,17 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
 当前两种点击实现以本页上方说明和两个新类为准；[先前广播入口方案](docs/plans/2026-09-14-widget-main-entry.md) 保留历史背景，其中 component/flags 部分已被替代。组件设计见 [RemoteViews 正式化重构设计](docs/plans/2026-09-06-widget-remoteviews-refactor-design.md)。
 
 ## 仍需荣耀真机验收
+
+### 2026-09-16 本地验证记录
+
+- 代码先推送，再验证；发现 B 的重复 URI 问题后，修正提交 `6875d4a` 先推送，再运行回归。
+- 构建及 27 项 JVM 测试通过；lint 0 错误、8 项警告。API 35 模拟器完整仪器测试 19/19 通过：覆盖两套方案六个入口、集合每次 URI/keyword、A 同一任务反复跳转、全实例只推进一次、B 配置恢复不重复推进、系统更新不归零等。
+- 默认 A 的真实桌面点击：等待 HOME 过渡结束（4 秒），冷启动结束应用进程后再等 2 秒并确认进程不存在，六个入口冷启动 6/6、热启动 6/6 到达各自页面。仅结束进程，不 force-stop、不清数据；冷启动可能保留系统任务，不等于全新安装。
+- 较短等待的首轮实点为冷 4/6、热 5/6；失败三次都有 `InputDispatcher: Dropping untrusted touch event`，没有对应 Provider 点击日志。这里的成功复测不代表解决了过渡期触摸被系统拦截的问题；未修改系统触摸安全设置，也未以重复发广播掩盖丢失点击。
+- 中间一轮设置页测试曾超时，日志显示系统接受启动后约 38 秒才创建页面；保持原有 5 秒断言超时，完整复测通过。保留此记录，不宣称消除了所有启动延迟。
+- B 已做真实 Activity PendingIntent 仪器测试，未切换桌面默认方案做 B 的独立冷启动矩阵；API 29～30、MagicOS 10 和真实项目 Launcher 的 finish/launchMode 行为仍需单独验证。
+
+### 真机清单
 
 - MagicOS 10 负一屏是否完整复用标准 AppWidget 生命周期。
 - API 29～30 `notifyAppWidgetViewDataChanged + setDisplayedChild(0)` 的实际执行顺序，以及 API 31+ 内联集合表现。
